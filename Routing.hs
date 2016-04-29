@@ -50,9 +50,11 @@ type family Path (client :: * -> *) (m :: * -> *) where
 class Remote (path :: *) where
   request_ :: path -> (String -> Head path String) -> String -> Last path String
 
+-- | Base case: client and server are one and the same.
 instance Remote (One x) where
   request_ _ r = r
 
+-- | Inductive case: the current node is attached to the next node in the path.
 instance (Head path ~ Client server , Node server , Remote path) =>
          Remote (Cons server path) where
   request_ path r = request_ (ttail path) $ req r
