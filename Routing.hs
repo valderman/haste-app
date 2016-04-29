@@ -27,18 +27,9 @@ type family Head (xs :: *) :: * -> * where
   Head (One x)     = x
   Head (Cons x xs) = x
 
-class Node (m :: * -> *) where
-  -- | The client to which this node is attached. Each node must be attached to
-  --   exactly one client. This means that the attachment relation is not
-  --   commutative: if @a@ is attached to @b@, then @b@ may send requests to
-  --   @a@, but not the other way around.
-  --   The attachments of nodes thus form a tree, rooted at the client.
-  --   This is necessitated by the need for paths to be unique and unambiguous,
-  --   a restriction that may or may not be possible to lift in the future.
-  type Client m :: * -> *
 
-  -- | Perform a request to this node from the client it is attached to.
-  req :: (String -> m String) -> String -> Client m String
+
+-- * Network traversal
 
 -- | The path from the given server to the given client.
 type family Path (client :: * -> *) (m :: * -> *) where
@@ -61,6 +52,24 @@ instance (Head path ~ Client server , Node server , Remote path) =>
     where
       ttail :: Cons x xs -> xs
       ttail _ = undefined
+
+
+
+-- * Defining and calling servers
+
+-- | A server node in the network.
+class Node (m :: * -> *) where
+  -- | The client to which this node is attached. Each node must be attached to
+  --   exactly one client. This means that the attachment relation is not
+  --   commutative: if @a@ is attached to @b@, then @b@ may send requests to
+  --   @a@, but not the other way around.
+  --   The attachments of nodes thus form a tree, rooted at the client.
+  --   This is necessitated by the need for paths to be unique and unambiguous,
+  --   a restriction that may or may not be possible to lift in the future.
+  type Client m :: * -> *
+
+  -- | Perform a request to this node from the client it is attached to.
+  req :: (String -> m String) -> String -> Client m String
 
 -- | Perform a request from a client to some connected node.
 request :: forall client server.
