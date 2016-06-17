@@ -1,7 +1,12 @@
 {-# LANGUAGE UndecidableInstances,
              ScopedTypeVariables,
              TypeFamilies,
+             DataKinds,
+             TypeOperators,
+             PolyKinds,
+             FlexibleInstances,
              FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
 module Routing
@@ -9,52 +14,44 @@ module Routing
   , Remote
   , request
   ) where
+import Data.Proxy
 
 -- * Type-level lists
 
--- | A singleton non-empty type list. Specialized to values of kind @* -> *@
---   to avoid having to pull in PolyKinds.
-data One (x :: * -> *)
-
--- | A single cons node in a non-empty type list.
-data Cons (x :: * -> *) (xs :: *) :: *
-
 -- | Get the last element of a non-empty type-level list.
-type family Last (xs :: *) :: * -> * where
-  Last (One x)     = x
-  Last (Cons x xs) = Last xs
-
--- | Get the first element of a non-empty type-level list.
-type family Head (xs :: *) :: * -> * where
-  Head (One x)     = x
-  Head (Cons x xs) = x
-
-
+type family Last (xs :: [k]) :: k where
+  Last '[x]      = x
+  Last (x ': xs) = Last xs
 
 -- * Network traversal
 
 -- | The path from the given server to the given client.
+--   The first element in the list is the server from which to trace a path to
+--   the client.
 type family Path (client :: * -> *) (m :: * -> *) where
-  Path client client = One client
-  Path client m      = Cons m (Path client (Client m))
+  Path client client = '[client]
+  Path client m      = m ': Path client (Client m)
 
 -- | Traverse a path from client to server, passing a request from node to node
 --   as we go along.
-class Remote (path :: *) where
-  request_ :: path -> (String -> Head path String) -> String -> Last path String
+class Remote (path :: [* -> *]) where
+  request_ :: ((x ': xs) ~ path)
+           => Proxy path           -- ^ The path to traverse
+           -> (String -> x String) -- ^ Function to call on the server
+           -> String               -- ^ Data to be sent to function
+           -> Last path String
 
 -- | Base case: client and server are one and the same.
-instance Remote (One x) where
+instance Remote '[x] where
   request_ _ r = r
 
 -- | Inductive case: the current node is attached to the next node in the path.
-instance (Head path ~ Client server , Node server , Remote path) =>
-         Remote (Cons server path) where
+instance (client ~ Client server, Node server, Remote (client ': path)) =>
+         Remote (server ': client ': path) where
   request_ path r = request_ (ttail path) $ req r
     where
-      ttail :: Cons x xs -> xs
+      ttail :: Proxy (x ': xs) -> Proxy xs
       ttail _ = undefined
-
 
 
 -- * Defining and calling servers
@@ -74,11 +71,11 @@ class Node (m :: * -> *) where
   req :: (String -> m String) -> String -> Client m String
 
 -- | Perform a request from a client to some connected node.
-request :: forall client server.
+request :: forall client server path.
            ( client ~ Last (Path client server)
-           , server ~ Head (Path client server)
+           , (server ': path) ~ Path client server
            , Remote (Path client server)
            )
          =>
            (String -> server String) -> String -> client String
-request = request_ (undefined :: Path client server)
+request = request_ (undefined :: Proxy (Path client server))
