@@ -68,5 +68,5 @@ import_ = Import . blob
 --   function @f@ to the client reads:
 --
 --       remote $ static (import_ f)
-remote :: forall a m. (Remotable m a) => StaticPtr (Import m a) -> Remote m a
+remote :: forall a m. Remotable m a => StaticPtr (Import m a) -> Remote m a
 remote f = remote' (undefined :: a) (staticKey f) []

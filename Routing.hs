@@ -52,7 +52,7 @@ instance (client ~ Client server, Node server, Remote (client ': path)) =>
   request_ path r = request_ (ttail path) $ req r
     where
       ttail :: Proxy (x ': xs) -> Proxy xs
-      ttail _ = undefined
+      ttail _ = Proxy
 
 
 -- * Defining and calling servers
@@ -79,4 +79,4 @@ request :: forall client server path.
            )
          =>
            (Blob -> server Blob) -> Blob -> client Blob
-request = request_ (undefined :: Proxy (Path client server))
+request = request_ (Proxy :: Proxy (Path client server))
