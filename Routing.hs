@@ -15,6 +15,7 @@ module Routing
   , request
   ) where
 import Data.Proxy
+import Haste.Binary -- for serialization
 
 -- * Type-level lists
 
@@ -36,10 +37,10 @@ type family Path (client :: * -> *) (m :: * -> *) where
 --   as we go along.
 class Remote (path :: [* -> *]) where
   request_ :: ((x ': xs) ~ path)
-           => Proxy path           -- ^ The path to traverse
-           -> (String -> x String) -- ^ Function to call on the server
-           -> String               -- ^ Data to be sent to function
-           -> Last path String
+           => Proxy path         -- ^ The path to traverse
+           -> (Blob -> x Blob)   -- ^ Function to call on the server
+           -> Blob               -- ^ Data to be sent to function
+           -> Last path Blob
 
 -- | Base case: client and server are one and the same.
 instance Remote '[x] where
@@ -68,7 +69,7 @@ class Node (m :: * -> *) where
   type Client m :: * -> *
 
   -- | Perform a request to this node from the client it is attached to.
-  req :: (String -> m String) -> String -> Client m String
+  req :: (Blob -> m Blob) -> Blob -> Client m Blob
 
 -- | Perform a request from a client to some connected node.
 request :: forall client server path.
@@ -77,5 +78,5 @@ request :: forall client server path.
            , Remote (Path client server)
            )
          =>
-           (String -> server String) -> String -> client String
+           (Blob -> server Blob) -> Blob -> client Blob
 request = request_ (undefined :: Proxy (Path client server))
