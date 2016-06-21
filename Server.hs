@@ -31,20 +31,33 @@ serverLoop port = do
   where
     clientLoop c = do
       msg <- receiveData c
-      _ <- forkIO $ do
-        case decode $ unsafeToBlobData msg of
-          Right (ServerCall nonce method args) -> do
-            mm <- unsafeLookupStaticPtr method
-            case mm of
-              Just m -> do
-                result <- deRefStaticPtr m args
-                sendBinaryData c $ unsafeFromBlob $ encode $ ServerReply
-                  { srNonce = nonce
-                  , srResult = result
-                  }
-              _ -> do
-                error $ "Method does not exist: " ++ show method
-          _ -> do
-            error $ "Got bad method call: " ++ show msg
+      _ <- forkIO $ handlePacket c (unsafeToBlobData msg)
       clientLoop c
+
+handlePacket :: Connection -> BlobData -> IO ()
+handlePacket c msg = do
+  case decode msg of
+    Right (ServerHop ep packet)          -> handleHop c ep packet
+    Right (ServerCall nonce method args) -> handleCall c nonce method args
+    _                                    -> error "invalid server call"
+
+handleHop :: Connection -> Endpoint -> Blob -> IO ()
+handleHop c (Endpoint host port) packet = do
+  WS.runClient host port "" $ \ c' -> do
+    sendBinaryData c' $ unsafeFromBlob packet
+    reply <- receiveData c'
+    sendBinaryData c (reply :: BSL.ByteString)
+
+handleCall :: Connection -> Nonce -> StaticKey -> [Blob] -> IO ()
+handleCall c nonce method args = do
+  mm <- unsafeLookupStaticPtr method
+  case mm of
+    Just m -> do
+      result <- deRefStaticPtr m args
+      sendBinaryData c $ unsafeFromBlob $ encode $ ServerReply
+        { srNonce = nonce
+        , srResult = result
+        }
+    _ -> do
+      error $ "no such method: " ++ show method
 #endif

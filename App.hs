@@ -14,6 +14,13 @@ import Control.Monad.IO.Class
 import Haste.Binary
 import Haste.Concurrent (concurrent, fork)
 
+#ifndef __HASTE__
+import Data.List
+import Unsafe.Coerce
+import Haste.Prim
+import Data.ByteString.Lazy.UTF8
+#endif
+
 -- | Run a Haste.App application. On the client side, a thread is forked off
 --   to run the client part in isolation.
 --   On the server side, one connection handler thread is forked off for each
@@ -28,10 +35,10 @@ runApp _ = concurrent . fork . runClient
 #endif
 -- Another #if instead of #else, as haskell-mode breaks horribly on #else.
 #ifndef __HASTE__
-runApp eps' _ = mapM_ (forkIO . serverLoop) eps >> eternalSlumber
+runApp eps _ = mapM_ (forkIO . serverLoop) ports >> eternalSlumber
   where
     eternalSlumber = threadDelay (30*60*1000000) >> eternalSlumber
-    eps' = snub [port | Endpoint _ port <- eps]
+    ports = snub [port | Endpoint _ port <- eps]
     snub = map head . group . sort
 #endif
 

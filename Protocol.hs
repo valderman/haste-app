@@ -23,6 +23,9 @@ data ServerCall = ServerCall
   { scNonce  :: Nonce
   , scMethod :: StaticKey
   , scArgs   :: [Blob]
+  } | ServerHop
+  { shEndpoint :: Endpoint
+  , shPacket   :: Blob
   }
 
 -- | A reply to a ServerCall.
@@ -51,9 +54,11 @@ instance Binary Fingerprint where
 instance Binary ServerCall where
   get = do
     n <- getWord8
-    unless (n == 0) $ fail "Wrong magic byte for ServerCall"
-    ServerCall <$> get <*> get <*> get
+    case n of
+      0 -> ServerCall <$> get <*> get <*> get
+      1 -> ServerHop <$> get <*> get
   put (ServerCall n c as) = putWord8 0 >> put n >> put c >> put as
+  put (ServerHop ep p)    = putWord8 1 >> put ep >> put p
 
 instance Binary ServerReply where
   get = do
@@ -68,3 +73,7 @@ instance Binary ServerException where
     unless (n == 2) $ fail "Wrong magic byte for ServerException"
     ServerException <$> get
   put (ServerException e) = putWord8 2 >> put e
+
+instance Binary Endpoint where
+  get = Endpoint <$> get <*> get
+  put (Endpoint host port) = put host >> put port
