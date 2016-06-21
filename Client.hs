@@ -91,15 +91,3 @@ sendOverWS ep blob = do
           | otherwise                            -> error "Bad nonce!"
         _ | Right e <- decode msg'               -> throw (e :: ServerException)
           | otherwise                            -> error "Bad server reply!"
-
--- | Invoke a remote function: send the RPC call over the network and wait for
---   the response to get back.
-invoke :: Endpoint -> StaticKey -> [Blob] -> Client Blob
-invoke ep k xs = do
-  (n, v) <- newResult
-  sendOverWS ep $ encode $ ServerCall
-    { scNonce  = n
-    , scMethod = k
-    , scArgs   = xs
-    }
-  liftCIO $ takeMVar v

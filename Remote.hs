@@ -1,4 +1,4 @@
-{-# LANGUAGE StaticPointers, TypeFamilies, ScopedTypeVariables, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, CPP #-}
+{-# LANGUAGE StaticPointers, TypeFamilies, ScopedTypeVariables, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, CPP, TypeOperators, DataKinds, FlexibleContexts, UndecidableInstances #-}
 module Remote where
 import Haste.Binary
 import Haste.Concurrent
@@ -7,7 +7,8 @@ import Control.Monad.IO.Class
 import Data.Typeable
 import GHC.StaticPtr
 import Client
-import Protocol (Endpoint (..))
+import Protocol
+import Routing
 
 #ifndef __HASTE__
 import Unsafe.Coerce
@@ -26,12 +27,8 @@ type family ServerMonad m where
   ServerMonad (a -> b) = ServerMonad b
   ServerMonad (m a)    = m
 
--- | A node which a client may ask to perform some computation.
-class MonadBlob m => Node m where
-  endpoint :: m a -> Endpoint
-
 -- | Any function which can be called remotely from the client.
-class (ServerMonad a ~ m, Node m) => Remotable m a where
+class (ServerMonad a ~ m, MonadBlob m, Node m) => Remotable m a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
   remote' :: a -> StaticKey -> [Blob] -> Remote m a
@@ -45,15 +42,39 @@ instance (Binary a, Remotable m b) => Remotable m (a -> b) where
     Right x' <- decodeBlob x
     blob (f x') xs
 
-instance ( m ~ ServerMonad (m a)
+instance forall m path a.
+         ( m ~ ServerMonad (m a)
          , Remote m (m a) ~ Client a
+         , Tunnel (Path Client m)
+         , Path Client m ~ (m ': path)
          , Node m
+         , MonadBlob m
          , Binary a
          ) => Remotable m (m a) where
   remote' m k xs = do
-    Right x <- decodeBlob =<< invoke (endpoint m) k (reverse xs)
+    Right x <- decodeBlob =<< invoke (Proxy :: Proxy m) k (reverse xs)
     return x
   blob m _ = fmap encode m
+
+-- | Invoke a remote function: send the RPC call over the network and wait for
+--   the response to get back.
+invoke :: forall (server :: * -> *) path.
+          ( (server ': path) ~ Path Client server
+          , Tunnel (Path Client server)
+          )
+         =>
+           Proxy (server :: * -> *) -> StaticKey -> [Blob] -> Client Blob
+invoke pm k xs = do
+    (n, v) <- newResult
+    uncurry sendOverWS $ mkPacket n
+    liftCIO $ takeMVar v
+  where
+    mkPacket n =
+      fmap encode $ tunnel (Proxy :: Proxy (Path Client server)) $ ServerCall
+        { scNonce  = n
+        , scMethod = k
+        , scArgs   = xs
+        }
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[Blob] -> Server Blob@, with the same semantics.

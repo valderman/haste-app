@@ -6,23 +6,26 @@
              PolyKinds,
              FlexibleInstances,
              FlexibleContexts #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
 module Routing
   ( Node (..)
-  , Remote
-  , request
+  , Last, Path, Tunnel
+  , tunnel
   ) where
 import Data.Proxy
 import Haste.Binary -- for serialization
+import Protocol
 
 -- * Type-level lists
 
--- | Get the last element of a non-empty type-level list.
 type family Last (xs :: [k]) :: k where
   Last '[x]      = x
   Last (x ': xs) = Last xs
+
+-- | Split a type-level list in its head and tail parts.
+tuncons :: Proxy (x ': xs) -> (Proxy x, Proxy xs)
+tuncons _ = (Proxy, Proxy)
 
 -- * Network traversal
 
@@ -30,30 +33,30 @@ type family Last (xs :: [k]) :: k where
 --   The first element in the list is the server from which to trace a path to
 --   the client.
 type family Path (client :: * -> *) (m :: * -> *) where
-  Path client client = '[client]
-  Path client m      = m ': Path client (Client m)
+  Path client client = '[]
+  Path client m      = m ': Path client (ClientOf m)
 
 -- | Traverse a path from client to server, passing a request from node to node
 --   as we go along.
-class Remote (path :: [* -> *]) where
-  request_ :: ((x ': xs) ~ path)
-           => Proxy path         -- ^ The path to traverse
-           -> (Blob -> x Blob)   -- ^ Function to call on the server
-           -> Blob               -- ^ Data to be sent to function
-           -> Last path Blob
+class Tunnel (path :: [* -> *]) where
+  tunnel :: ((x ': xs) ~ path)
+         => Proxy path -- ^ The path to traverse
+         -> ServerCall -- ^ Server call to route
+         -> (Endpoint, ServerCall)
 
 -- | Base case: client and server are one and the same.
-instance Remote '[x] where
-  request_ _ r = r
+instance Node x => Tunnel '[x] where
+  tunnel path c = (endpoint $ fst $ tuncons path, c)
 
 -- | Inductive case: the current node is attached to the next node in the path.
-instance (client ~ Client server, Node server, Remote (client ': path)) =>
-         Remote (server ': client ': path) where
-  request_ path r = request_ (ttail path) $ req r
-    where
-      ttail :: Proxy (x ': xs) -> Proxy xs
-      ttail _ = Proxy
-
+instance {-# OVERLAPPABLE #-}
+         ( client ~ ClientOf server
+         , Node server
+         , Tunnel (client ': path)
+         ) =>
+         Tunnel (server ': client ': path) where
+  tunnel path = tunnel ttail . ServerHop (endpoint thead) . encode
+    where (thead, ttail) = tuncons path
 
 -- * Defining and calling servers
 
@@ -66,17 +69,7 @@ class Node (m :: * -> *) where
   --   The attachments of nodes thus form a tree, rooted at the client.
   --   This is necessitated by the need for paths to be unique and unambiguous,
   --   a restriction that may or may not be possible to lift in the future.
-  type Client m :: * -> *
+  type ClientOf m :: * -> *
 
   -- | Perform a request to this node from the client it is attached to.
-  req :: (Blob -> m Blob) -> Blob -> Client m Blob
-
--- | Perform a request from a client to some connected node.
-request :: forall client server path.
-           ( client ~ Last (Path client server)
-           , (server ': path) ~ Path client server
-           , Remote (Path client server)
-           )
-         =>
-           (Blob -> server Blob) -> Blob -> client Blob
-request = request_ (Proxy :: Proxy (Path client server))
+  endpoint :: Proxy m -> Endpoint

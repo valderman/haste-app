@@ -20,22 +20,22 @@ data Endpoint = Endpoint
 
 -- | A method call to the server.
 data ServerCall = ServerCall
-  { scNonce  :: Nonce
-  , scMethod :: StaticKey
-  , scArgs   :: [Blob]
+  { scNonce  :: !Nonce
+  , scMethod :: !StaticKey
+  , scArgs   :: ![Blob]
   } | ServerHop
-  { shEndpoint :: Endpoint
-  , shPacket   :: Blob
+  { shEndpoint :: !Endpoint
+  , shPacket   :: !Blob
   }
 
 -- | A reply to a ServerCall.
 data ServerReply = ServerReply
-  { srNonce  :: Nonce
-  , srResult :: Blob
+  { srNonce  :: !Nonce
+  , srResult :: !Blob
   }
 
 -- | Throw a server exception to the client.
-data ServerException = ServerException String deriving (Typeable, Show)
+data ServerException = ServerException !String deriving (Typeable, Show)
 instance Exception ServerException
 
 instance Binary Word64 where

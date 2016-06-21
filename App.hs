@@ -9,6 +9,7 @@ import Remote
 import Client
 import Server
 import Protocol
+import Routing
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad.IO.Class
 import Haste.Binary

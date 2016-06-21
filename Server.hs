@@ -43,7 +43,7 @@ handlePacket c msg = do
 
 handleHop :: Connection -> Endpoint -> Blob -> IO ()
 handleHop c (Endpoint host port) packet = do
-  WS.runClient host port "" $ \ c' -> do
+  WS.runClient host port "/" $ \ c' -> do
     sendBinaryData c' $ unsafeFromBlob packet
     reply <- receiveData c'
     sendBinaryData c (reply :: BSL.ByteString)
