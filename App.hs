@@ -1,9 +1,9 @@
 {-# LANGUAGE CPP, GeneralizedNewtypeDeriving #-}
 module App
-  ( Endpoint (..) , Node (..)
-  , ServerException (..)
-  , Client, Server, MonadBlob (..), MonadIO (..)
-  , remote, import_, runApp
+  ( Endpoint (..), Node (..)
+  , MonadBlob (..), MonadIO (..)
+  , Remotable, Remote, RunsOn, remote, import_, annotate
+  , Client, Server, ServerException (..), runApp
   ) where
 import Remote
 import Client
@@ -51,3 +51,19 @@ instance MonadBlob Server where
   getBlobData = pure . const undefined
   getBlobText' = pure . const undefined
 #endif
+
+-- | Force the type of a monadic computation. Used to annotate inline remote
+--   imports.
+type RunsOn m = m ()
+
+-- | Annotate a monadic computation with the node it's intended to run on.
+--   This is often necessary when doing inline imports:
+--
+--       reverse_ :: String -> Client String
+--       reverse_ = remote $ static (import_ $ \x -> do
+--         annotate :: RunsOn Server
+--         return (reverse x)
+--
+--   This is essentially a more readable way to say @return () :: Server ()@.
+annotate :: Monad m => RunsOn m
+annotate = return ()
