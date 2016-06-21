@@ -2,7 +2,7 @@
 module App
   ( Endpoint (..), Node (..)
   , MonadBlob (..), MonadIO (..)
-  , Remotable, Remote, RunsOn, remote, import_, annotate
+  , ConnectedNode, Remotable, Remote, RunsOn, remote, import_, annotate
   , Client, Server, ServerException (..), runApp
   ) where
 import Remote

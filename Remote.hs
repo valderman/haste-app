@@ -1,4 +1,4 @@
-{-# LANGUAGE StaticPointers, TypeFamilies, ScopedTypeVariables, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, CPP, TypeOperators, DataKinds, FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE StaticPointers, TypeFamilies, ScopedTypeVariables, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, CPP, TypeOperators, DataKinds, FlexibleContexts, UndecidableInstances, ConstraintKinds #-}
 module Remote where
 import Haste.Binary
 import Haste.Concurrent
@@ -27,6 +27,17 @@ type family ServerMonad m where
   ServerMonad (a -> b) = ServerMonad b
   ServerMonad (m a)    = m
 
+-- | Constraint signifying that a computation of type @f@ can be executed on
+--   node @m@, which is connected to the client along path @path@.
+type ConnectedNode m path f =
+  ( m ~ ServerMonad (m f)
+  , Remote m (m f) ~ Client f
+  , Tunnel (Path Client m)
+  , Path Client m ~ (m ': path)
+  , Node m
+  , MonadBlob m
+  )
+
 -- | Any function which can be called remotely from the client.
 class (ServerMonad a ~ m, MonadBlob m, Node m) => Remotable m a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
@@ -42,15 +53,8 @@ instance (Binary a, Remotable m b) => Remotable m (a -> b) where
     Right x' <- decodeBlob x
     blob (f x') xs
 
-instance forall m path a.
-         ( m ~ ServerMonad (m a)
-         , Remote m (m a) ~ Client a
-         , Tunnel (Path Client m)
-         , Path Client m ~ (m ': path)
-         , Node m
-         , MonadBlob m
-         , Binary a
-         ) => Remotable m (m a) where
+instance forall m path a. (ConnectedNode m path a, Binary a)
+         => Remotable m (m a) where
   remote' m k xs = do
     Right x <- decodeBlob =<< invoke (Proxy :: Proxy m) k (reverse xs)
     return x
