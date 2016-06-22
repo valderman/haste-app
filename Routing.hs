@@ -63,3 +63,6 @@ class Node (m :: * -> *) where
 
   -- | The location at which the node can be reached.
   endpoint :: Proxy m -> Endpoint
+
+  -- | Perform a computation of the given node type.
+  invoke :: m a -> IO a

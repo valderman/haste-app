@@ -3,7 +3,7 @@ module App
   ( Endpoint (..), Node (..)
   , MonadBlob (..), MonadIO (..)
   , ConnectedNode, Remotable, Remote, RunsOn, remote, import_, annotate
-  , Client, Server, ServerException (..), runApp
+  , Client, Server, ServerException (..), runApp, invokeServer
   ) where
 import Remote
 import Client
@@ -44,7 +44,7 @@ runApp eps _ = mapM_ (forkIO . serverLoop) ports >> eternalSlumber
 -- | A server type, providing the base for more advanced, custom servers.
 --   In order to make a simple single-server application, creating an
 --   appropriate instance of 'Node' for 'Server' is all that's needed.
-newtype Server a = Server (IO a)
+newtype Server a = Server {invokeServer :: IO a}
   deriving (Functor, Applicative, Monad, MonadIO)
 
 instance MonadBlob Server where
