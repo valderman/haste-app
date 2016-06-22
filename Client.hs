@@ -72,22 +72,28 @@ sendOverWS ep blob = do
   -- TODO: use endpoint map to handle disconnects?
   msend <- Map.lookup ep <$> get connectionMap
   case msend of
+    -- Connection already open; send message.
     Just send -> send blob
+
+    -- No connection yet; open one.
     _         -> do
       r <- Client $ pure . connectionMap
-      rm <- get resultMap
+      rmref <- Client $ pure . resultMap
       liftCIO $ do
-        w <- withBinaryWebSocket url (handler rm) (error "WebSocket error") pure
+        w <- withBinaryWebSocket url (handler rmref)
+                                     (error "WebSocket error")
+                                     return
         liftIO $ atomicModifyIORef' r $ \cm ->
           (Map.insert ep (liftCIO . wsSendBlob w) cm, ())
       sendOverWS ep blob
   where
     url = concat ["ws://", endpointHost ep, ":", show (endpointPort ep)]
-    handler resultmap _ msg = do
+    handler resmapref _ msg = do
       msg' <- getBlobData msg
-      case decode msg' of
-        Right (ServerReply nonce result)
-          | Just v <- Map.lookup nonce resultmap -> putMVar v result
-          | otherwise                            -> error "Bad nonce!"
-        _ | Right e <- decode msg'               -> throw (e :: ServerException)
-          | otherwise                            -> error "Bad server reply!"
+      join . liftIO $ atomicModifyIORef' resmapref $ \m ->
+        case decode msg' of
+          Right (ServerReply nonce r)
+            | Just v <- Map.lookup nonce m -> (Map.delete nonce m, putMVar v r)
+            | otherwise                    -> (m, error "Bad nonce!")
+          _ | Right e <- decode msg'       -> (m, throw (e :: ServerException))
+            | otherwise                    -> (m, error "Bad server reply!")
