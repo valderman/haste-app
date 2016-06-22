@@ -33,9 +33,7 @@ import Data.ByteString.Lazy.UTF8
 runApp :: [Endpoint] -> Client () -> IO ()
 #ifdef __HASTE__
 runApp _ = concurrent . fork . runClient
-#endif
--- Another #if instead of #else, as haskell-mode breaks horribly on #else.
-#ifndef __HASTE__
+#else
 runApp eps _ = mapM_ (forkIO . serverLoop) ports >> eternalSlumber
   where
     eternalSlumber = threadDelay (30*60*1000000) >> eternalSlumber

@@ -1,4 +1,14 @@
-{-# LANGUAGE StaticPointers, TypeFamilies, ScopedTypeVariables, GeneralizedNewtypeDeriving, FlexibleInstances, MultiParamTypeClasses, CPP, TypeOperators, DataKinds, FlexibleContexts, UndecidableInstances, ConstraintKinds #-}
+{-# LANGUAGE StaticPointers,
+             TypeFamilies,
+             ScopedTypeVariables,
+             FlexibleInstances,
+             MultiParamTypeClasses,
+             CPP,
+             TypeOperators,
+             DataKinds,
+             FlexibleContexts,
+             UndecidableInstances,
+             ConstraintKinds #-}
 module Remote where
 import Haste.Binary
 import Haste.Concurrent

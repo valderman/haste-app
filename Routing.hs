@@ -4,8 +4,7 @@
              DataKinds,
              TypeOperators,
              PolyKinds,
-             FlexibleInstances,
-             FlexibleContexts #-}
+             FlexibleInstances #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
 module Routing

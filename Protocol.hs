@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings, DeriveDataTypeable, CPP #-}
 -- | Haste.App client-server protocol.
 module Protocol where
 import Control.Exception
