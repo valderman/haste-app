@@ -10,7 +10,7 @@
 --   network and back again.
 module Routing
   ( Node (..)
-  , Last, Path, Tunnel
+  , Path, Tunnel
   , tunnel
   ) where
 import Data.Proxy
@@ -18,10 +18,6 @@ import Haste.Binary -- for serialization
 import Protocol
 
 -- * Type-level lists
-
-type family Last (xs :: [k]) :: k where
-  Last '[x]      = x
-  Last (x ': xs) = Last xs
 
 -- | Split a type-level list in its head and tail parts.
 tuncons :: Proxy (x ': xs) -> (Proxy x, Proxy xs)
@@ -36,11 +32,10 @@ type family Path (client :: * -> *) (m :: * -> *) where
   Path client client = '[]
   Path client m      = m ': Path client (ClientOf m)
 
--- | Traverse a path from client to server, passing a request from node to node
---   as we go along.
+-- | Nest a server call in zero or more server hop packets, as directed by the
+--   given path.
 class Tunnel (path :: [* -> *]) where
-  tunnel :: ((x ': xs) ~ path)
-         => Proxy path -- ^ The path to traverse
+  tunnel :: Proxy path -- ^ The path to traverse
          -> ServerCall -- ^ Server call to route
          -> (Endpoint, ServerCall)
 
@@ -49,13 +44,9 @@ instance Node x => Tunnel '[x] where
   tunnel path c = (endpoint $ fst $ tuncons path, c)
 
 -- | Inductive case: the current node is attached to the next node in the path.
-instance {-# OVERLAPPABLE #-}
-         ( client ~ ClientOf server
-         , Node server
-         , Tunnel (client ': path)
-         ) =>
+instance (client ~ ClientOf server, Node server, Tunnel (client ': path)) =>
          Tunnel (server ': client ': path) where
-  tunnel path = tunnel ttail . ServerHop (endpoint thead) . encode
+  tunnel path pkt = tunnel ttail $ ServerHop (endpoint thead) (encode pkt)
     where (thead, ttail) = tuncons path
 
 -- * Defining and calling servers
@@ -71,5 +62,5 @@ class Node (m :: * -> *) where
   --   a restriction that may or may not be possible to lift in the future.
   type ClientOf m :: * -> *
 
-  -- | Perform a request to this node from the client it is attached to.
+  -- | The location at which the node can be reached.
   endpoint :: Proxy m -> Endpoint

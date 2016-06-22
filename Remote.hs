@@ -42,13 +42,13 @@ type ConnectedNode m path f =
 class (ServerMonad a ~ m, MonadBlob m, Node m) => Remotable m a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
-  remote' :: a -> StaticKey -> [Blob] -> Remote m a
+  remote' :: Proxy a -> StaticKey -> [Blob] -> Remote m a
 
   -- | Serializify a function so it may be called remotely.
   blob :: a -> [Blob] -> m Blob
 
 instance (Binary a, Remotable m b) => Remotable m (a -> b) where
-  remote' _ k xs x = remote' (undefined :: b) k (encode x : xs)
+  remote' _ k xs x = remote' (Proxy :: Proxy b) k (encode x : xs)
   blob f (x:xs) = do
     Right x' <- decodeBlob x
     blob (f x') xs
@@ -94,4 +94,4 @@ import_ = Import . blob
 --
 --       remote $ static (import_ f)
 remote :: forall a m. Remotable m a => StaticPtr (Import m a) -> Remote m a
-remote f = remote' (undefined :: a) (staticKey f) []
+remote f = remote' (Proxy :: Proxy a) (staticKey f) []
