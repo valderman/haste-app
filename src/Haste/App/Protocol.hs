@@ -2,9 +2,7 @@
 module Haste.App.Protocol where
 import Control.Exception
 import Control.Monad
-import Data.Bits
 import Data.Typeable
-import Data.Word
 import GHC.StaticPtr
 import Haste.Binary
 
@@ -42,6 +40,7 @@ instance Binary ServerCall where
     case n of
       0 -> ServerCall <$> get <*> get <*> get
       1 -> ServerHop <$> get <*> get
+      _ -> fail $ "No such ServerCall constructor: " ++ show n
   put (ServerCall n c as) = putWord8 0 >> put n >> put c >> put as
   put (ServerHop ep p)    = putWord8 1 >> put ep >> put p
 

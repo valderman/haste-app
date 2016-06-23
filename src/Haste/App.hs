@@ -11,12 +11,13 @@ import Haste.App.Client
 import Haste.App.Server
 import Haste.App.Protocol
 import Haste.App.Routing
-import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad.IO.Class
 import Haste.Binary
-import Haste.Concurrent (concurrent, fork)
 
-#ifndef __HASTE__
+#ifdef __HASTE__
+import Haste.Concurrent (concurrent, fork)
+#else
+import Control.Concurrent (forkIO, threadDelay)
 import Data.List
 import Unsafe.Coerce
 import Haste.Prim

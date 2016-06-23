@@ -15,12 +15,6 @@ import Haste.App.Protocol
 unsafeFromBlob :: Blob -> BSL.ByteString
 unsafeFromBlob = unsafeCoerce
 
-unsafeFromBlobData :: BlobData -> BSL.ByteString
-unsafeFromBlobData = unsafeCoerce
-
-unsafeToBlob :: BSL.ByteString -> Blob
-unsafeToBlob = unsafeCoerce
-
 unsafeToBlobData :: BSL.ByteString -> BlobData
 unsafeToBlobData = unsafeCoerce
 

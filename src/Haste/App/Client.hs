@@ -3,8 +3,6 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.IORef
-import GHC.StaticPtr
-import System.IO.Unsafe
 import qualified Data.Map.Strict as Map
 import Haste.Binary hiding (get)
 import Haste.Concurrent

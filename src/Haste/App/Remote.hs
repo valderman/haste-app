@@ -2,26 +2,17 @@
              ScopedTypeVariables,
              FlexibleInstances,
              MultiParamTypeClasses,
-             CPP,
              FlexibleContexts,
              UndecidableInstances #-}
 module Haste.App.Remote where
 import Haste.Binary
 import Haste.Concurrent
 
-import Control.Monad.IO.Class
 import Data.Typeable
 import GHC.StaticPtr
 import Haste.App.Client
 import Haste.App.Protocol
 import Haste.App.Routing
-
-#ifndef __HASTE__
-import Unsafe.Coerce
-import Data.ByteString.Lazy.UTF8 (toString)
-import Haste.App.Server (unsafeFromBlob)
-import Haste.Prim (toJSStr)
-#endif
 
 newtype Import (m :: * -> *) a = Import ([Blob] -> IO Blob)
 
@@ -59,6 +50,7 @@ instance (Binary a, Callback m b) => Callback m (a -> b) where
   blob f (x:xs) = do
     Right x' <- decodeBlob x
     blob (f x') xs
+  blob _ _ = error "too few arguments to remote function"
 
 instance (Result (m a) ~ m, MonadBlob m, Binary a) => Callback m (m a) where
   blob m _ = fmap encode m
