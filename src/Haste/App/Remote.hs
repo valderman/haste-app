@@ -9,21 +9,21 @@
              FlexibleContexts,
              UndecidableInstances,
              ConstraintKinds #-}
-module Remote where
+module Haste.App.Remote where
 import Haste.Binary
 import Haste.Concurrent
 
 import Control.Monad.IO.Class
 import Data.Typeable
 import GHC.StaticPtr
-import Client
-import Protocol
-import Routing
+import Haste.App.Client
+import Haste.App.Protocol
+import Haste.App.Routing
 
 #ifndef __HASTE__
 import Unsafe.Coerce
 import Data.ByteString.Lazy.UTF8 (toString)
-import Server (unsafeFromBlob)
+import Haste.App.Server (unsafeFromBlob)
 import Haste.Prim (toJSStr)
 #endif
 

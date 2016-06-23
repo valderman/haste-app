@@ -1,4 +1,4 @@
-module Client where
+module Haste.App.Client where
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
@@ -9,7 +9,7 @@ import qualified Data.Map.Strict as Map
 import Haste.Binary hiding (get)
 import Haste.Concurrent
 import Haste.WebSockets
-import Protocol
+import Haste.App.Protocol
 
 data Env = Env
   { nonceSupply   :: IORef Nonce

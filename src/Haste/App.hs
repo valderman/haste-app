@@ -1,15 +1,15 @@
 {-# LANGUAGE CPP, GeneralizedNewtypeDeriving #-}
-module App
+module Haste.App
   ( Endpoint (..), Node (..)
   , MonadBlob (..), MonadIO (..)
   , ConnectedNode, Remotable, Remote, RunsOn, remote, import_, annotate
   , Client, Server, ServerException (..), runApp, invokeServer
   ) where
-import Remote
-import Client
-import Server
-import Protocol
-import Routing
+import Haste.App.Remote
+import Haste.App.Client
+import Haste.App.Server
+import Haste.App.Protocol
+import Haste.App.Routing
 import Control.Concurrent (forkIO, threadDelay)
 import Control.Monad.IO.Class
 import Haste.Binary

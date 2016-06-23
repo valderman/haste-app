@@ -1,12 +1,11 @@
 -- | Haste.App client-server protocol.
-module Protocol where
+module Haste.App.Protocol where
 import Control.Exception
 import Control.Monad
 import Data.Bits
 import Data.Typeable
 import Data.Word
 import GHC.StaticPtr
-import GHC.Fingerprint.Type
 import Haste.Binary
 
 type Nonce = Int
@@ -36,19 +35,6 @@ data ServerReply = ServerReply
 -- | Throw a server exception to the client.
 data ServerException = ServerException !String deriving (Typeable, Show)
 instance Exception ServerException
-
-instance Binary Word64 where
-  get = do
-    lo <- get :: Get Word32
-    hi <- get :: Get Word32
-    return $ fromIntegral lo .|. shiftL (fromIntegral hi) 32
-  put x = do
-    put (fromIntegral x :: Word32)
-    put (fromIntegral (shiftR x 32) :: Word32)
-
-instance Binary Fingerprint where
-  get = Fingerprint <$> get <*> get
-  put (Fingerprint a b) = put a >> put b
 
 instance Binary ServerCall where
   get = do

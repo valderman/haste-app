@@ -7,14 +7,14 @@
              FlexibleInstances #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
-module Routing
+module Haste.App.Routing
   ( Node (..)
   , Path, Tunnel
   , tunnel
   ) where
 import Data.Proxy
 import Haste.Binary -- for serialization
-import Protocol
+import Haste.App.Protocol
 
 -- * Type-level lists
 
