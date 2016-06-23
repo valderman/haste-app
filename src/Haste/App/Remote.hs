@@ -27,46 +27,41 @@ import Haste.App.Server (unsafeFromBlob)
 import Haste.Prim (toJSStr)
 #endif
 
-newtype Import a = Import ([Blob] -> IO Blob)
+newtype Import (m :: * -> *) a = Import ([Blob] -> IO Blob)
+
+type family Result a where
+  Result (a -> b) = Result b
+  Result (m a)    = m
 
 type family Remote m a where
-  Remote m (a -> b) = (a -> Remote m b)
-  Remote m (m a)    = Client a
-
-type family ServerMonad m where
-  ServerMonad (a -> b) = ServerMonad b
-  ServerMonad (m a)    = m
-
--- | Constraint signifying that a computation of type @f@ can be executed on
---   node @m@.
-type ConnectedNode m f =
-  ( m ~ ServerMonad (m f)
-  , Remote m (m f) ~ Client f
-  , Tunnel Client m
-  , Node m
-  , MonadBlob m
-  )
+  Remote m (a -> b)   = (a -> Remote m b)
+  Remote m (Client a) = m a
 
 -- | Any function which can be called remotely from the client.
-class (ServerMonad a ~ m, MonadBlob m, Node m) => Remotable m a where
+class Node m => Remotable m a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
-  remote' :: Proxy a -> StaticKey -> [Blob] -> Remote m a
+  remote' :: Proxy m -> Proxy a -> StaticKey -> [Blob] -> a
 
+class (Result a ~ m, MonadBlob m) => Blobby m a where
   -- | Serializify a function so it may be called remotely.
   blob :: a -> [Blob] -> m Blob
 
 instance (Binary a, Remotable m b) => Remotable m (a -> b) where
-  remote' _ k xs x = remote' (Proxy :: Proxy b) k (encode x : xs)
+  remote' pm _ k xs x = remote' pm (Proxy :: Proxy b) k (encode x : xs)
+
+instance (Binary a, Blobby m b) => Blobby m (a -> b) where
   blob f (x:xs) = do
     Right x' <- decodeBlob x
     blob (f x') xs
 
-instance forall m a. (ConnectedNode m a, Binary a)
-         => Remotable m (m a) where
-  remote' m k xs = do
-    Right x <- decodeBlob =<< call (Proxy :: Proxy m) k (reverse xs)
+instance forall m a. (Tunnel Client (ClientOf m), Node m, Binary a)
+         => Remotable m (Client a) where
+  remote' pm _ k xs = do
+    Right x <- decodeBlob =<< call pm k (reverse xs)
     return x
+
+instance (Result (m a) ~ m, MonadBlob m, Binary a) => Blobby m (m a) where
   blob m _ = fmap encode m
 
 -- | Invoke a remote function: send the RPC call over the network and wait for
@@ -88,7 +83,7 @@ call pm k xs = do
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[Blob] -> Server Blob@, with the same semantics.
 --   This allows the function to be called remotely via a static pointer.
-import_ :: Remotable m a => a -> Import a
+import_ :: (Node m, Blobby m a) => a -> Import m a
 import_ f = Import $ \x -> invoke (blob f x)
 
 -- | Turn a static pointer to a serializified function into a client-side
@@ -98,5 +93,5 @@ import_ f = Import $ \x -> invoke (blob f x)
 --   function @f@ to the client reads:
 --
 --       remote $ static (import_ f)
-remote :: forall a m. Remotable m a => StaticPtr (Import a) -> Remote m a
-remote f = remote' (Proxy :: Proxy a) (staticKey f) []
+remote :: forall a m. Remotable m a => StaticPtr (Import m (Remote m a)) -> a
+remote f = remote' (Proxy :: Proxy m) (Proxy :: Proxy a) (staticKey f) []
