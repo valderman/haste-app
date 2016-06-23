@@ -41,14 +41,14 @@ type family Remote m a where
 class Node m => Remotable m a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
-  remote' :: Proxy m -> Proxy a -> StaticKey -> [Blob] -> a
+  remote' :: Proxy m -> StaticKey -> [Blob] -> a
 
 class (Result a ~ m, MonadBlob m) => Blobby m a where
   -- | Serializify a function so it may be called remotely.
   blob :: a -> [Blob] -> m Blob
 
 instance (Binary a, Remotable m b) => Remotable m (a -> b) where
-  remote' pm _ k xs x = remote' pm (Proxy :: Proxy b) k (encode x : xs)
+  remote' pm k xs x = remote' pm k (encode x : xs)
 
 instance (Binary a, Blobby m b) => Blobby m (a -> b) where
   blob f (x:xs) = do
@@ -57,7 +57,7 @@ instance (Binary a, Blobby m b) => Blobby m (a -> b) where
 
 instance forall m a. (Tunnel Client (ClientOf m), Node m, Binary a)
          => Remotable m (Client a) where
-  remote' pm _ k xs = do
+  remote' pm k xs = do
     Right x <- decodeBlob =<< call pm k (reverse xs)
     return x
 
@@ -94,4 +94,4 @@ import_ f = Import $ \x -> invoke (blob f x)
 --
 --       remote $ static (import_ f)
 remote :: forall a m. Remotable m a => StaticPtr (Import m (Remote m a)) -> a
-remote f = remote' (Proxy :: Proxy m) (Proxy :: Proxy a) (staticKey f) []
+remote f = remote' (Proxy :: Proxy m) (staticKey f) []
