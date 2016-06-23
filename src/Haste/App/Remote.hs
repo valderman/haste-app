@@ -38,12 +38,11 @@ type family ServerMonad m where
   ServerMonad (m a)    = m
 
 -- | Constraint signifying that a computation of type @f@ can be executed on
---   node @m@, which is connected to the client along path @path@.
-type ConnectedNode m path f =
+--   node @m@.
+type ConnectedNode m f =
   ( m ~ ServerMonad (m f)
   , Remote m (m f) ~ Client f
-  , Tunnel (Path Client m)
-  , Path Client m ~ (m ': path)
+  , Tunnel Client m
   , Node m
   , MonadBlob m
   )
@@ -63,7 +62,7 @@ instance (Binary a, Remotable m b) => Remotable m (a -> b) where
     Right x' <- decodeBlob x
     blob (f x') xs
 
-instance forall m path a. (ConnectedNode m path a, Binary a)
+instance forall m a. (ConnectedNode m a, Binary a)
          => Remotable m (m a) where
   remote' m k xs = do
     Right x <- decodeBlob =<< call (Proxy :: Proxy m) k (reverse xs)
@@ -72,19 +71,17 @@ instance forall m path a. (ConnectedNode m path a, Binary a)
 
 -- | Invoke a remote function: send the RPC call over the network and wait for
 --   the response to get back.
-call :: forall (server :: * -> *) path.
-          ( (server ': path) ~ Path Client server
-          , Tunnel (Path Client server)
-          )
-         =>
-           Proxy (server :: * -> *) -> StaticKey -> [Blob] -> Client Blob
+call :: forall (server :: * -> *).
+        Tunnel Client server
+      =>
+        Proxy (server :: * -> *) -> StaticKey -> [Blob] -> Client Blob
 call pm k xs = do
     (n, v) <- newResult
     uncurry sendOverWS $ mkPacket n
     liftCIO $ takeMVar v
   where
     mkPacket n =
-      fmap encode $ tunnel (Proxy :: Proxy (Path Client server)) $ ServerCall
+      fmap encode $ tunnel (Proxy :: Proxy Client) pm $ ServerCall
         { scNonce  = n
         , scMethod = k
         , scArgs   = xs
