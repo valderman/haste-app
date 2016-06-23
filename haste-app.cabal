@@ -1,0 +1,51 @@
+name:                haste-app
+version:             0.1.0.0
+synopsis:            Framework for type-safe, distributed web applications.
+-- description:         
+homepage:            http://haste-lang.org
+license:             MIT
+license-file:        LICENSE
+author:              Anton Ekblad
+maintainer:          anton@ekblad.cc
+-- copyright:           
+category:            Web
+build-type:          Simple
+-- extra-source-files:  
+cabal-version:       >=1.10
+
+library
+  exposed-modules:
+    Haste.App
+  other-modules:
+    Haste.App.Server,
+    Haste.App.Client,
+    Haste.App.Routing,
+    Haste.App.Remote,
+    Haste.App.Protocol
+  other-extensions:
+    CPP,
+    GeneralizedNewtypeDeriving,
+    UndecidableInstances,
+    ScopedTypeVariables,
+    TypeFamilies,
+    DataKinds,
+    TypeOperators,
+    PolyKinds,
+    FlexibleInstances,
+    StaticPointers,
+    MultiParamTypeClasses,
+    FlexibleContexts,
+    ConstraintKinds
+  build-depends:
+    base         >=4.8 && <4.9,
+    transformers >=0.4 && <0.6,
+    haste-lib    >=0.6 && <0.7,
+    haste-prim   >=0.6 && <0.7,
+    containers   >=0.5 && <0.6
+  if !impl(haste)
+    build-depends:
+      websockets  >=0.8  && <0.10,
+      utf8-string >=1.0  && <1.1,
+      bytestring  >=0.10 && <0.11
+  hs-source-dirs:      src
+  default-language:    Haskell2010
