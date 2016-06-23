@@ -71,10 +71,8 @@ instance forall m a. (ConnectedNode m a, Binary a)
 
 -- | Invoke a remote function: send the RPC call over the network and wait for
 --   the response to get back.
-call :: forall (server :: * -> *).
-        Tunnel Client server
-      =>
-        Proxy (server :: * -> *) -> StaticKey -> [Blob] -> Client Blob
+call :: Tunnel Client server
+     => Proxy (server :: * -> *) -> StaticKey -> [Blob] -> Client Blob
 call pm k xs = do
     (n, v) <- newResult
     uncurry sendOverWS $ mkPacket n
