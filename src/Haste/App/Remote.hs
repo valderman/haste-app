@@ -77,7 +77,7 @@ call pm k xs = do
     liftCIO $ takeMVar v
   where
     mkPacket n =
-      fmap encode $ tunnel (Proxy :: Proxy Client) pm $ ServerCall
+      tunnel (Proxy :: Proxy Client) pm $ ServerCall
         { scNonce  = n
         , scMethod = k
         , scArgs   = xs

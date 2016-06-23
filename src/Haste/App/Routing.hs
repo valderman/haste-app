@@ -20,11 +20,12 @@ class Tunnel (client :: * -> *) (server :: * -> *) where
   tunnel :: Proxy client -- ^ Client to tunnel a path from
          -> Proxy server -- ^ Server to tunnel a path to
          -> ServerCall   -- ^ Server call to route
-         -> (Endpoint, ServerCall)
+         -> (Endpoint, Blob)
 
 -- | Base case: client and server are one and the same.
 instance Tunnel client client where
-  tunnel _cp _sp call = (undefined, call)
+  tunnel _cp _sp (ServerHop ep call) = (ep, call)
+  tunnel _cp _sp _                   = error "Can't make a call to myself!"
 
 -- | Inductive case: the current node is attached to the next node in the path.
 instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
