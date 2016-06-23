@@ -2,7 +2,7 @@
 module Haste.App
   ( Endpoint (..), Node (..)
   , MonadBlob (..), MonadIO (..)
-  , Remotable, Remote, RunsOn, remote, import_, annotate
+  , Callback, Remotable, Remote, RunsOn, remote, import_, annotate
   , Client, Server, ServerException (..), runApp, invokeServer
   ) where
 import Haste.App.Remote

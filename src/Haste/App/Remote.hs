@@ -33,27 +33,19 @@ type family Result a where
   Result (a -> b) = Result b
   Result (m a)    = m
 
+-- | Server-side type of a 'Remotable' function.
 type family Remote m a where
   Remote m (a -> b)   = (a -> Remote m b)
   Remote m (Client a) = m a
 
--- | Any function which can be called remotely from the client.
+-- | A client-side frontend for a 'Remote' function.
 class Node m => Remotable m a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
   remote' :: Proxy m -> StaticKey -> [Blob] -> a
 
-class (Result a ~ m, MonadBlob m) => Blobby m a where
-  -- | Serializify a function so it may be called remotely.
-  blob :: a -> [Blob] -> m Blob
-
 instance (Binary a, Remotable m b) => Remotable m (a -> b) where
   remote' pm k xs x = remote' pm k (encode x : xs)
-
-instance (Binary a, Blobby m b) => Blobby m (a -> b) where
-  blob f (x:xs) = do
-    Right x' <- decodeBlob x
-    blob (f x') xs
 
 instance forall m a. (Tunnel Client (ClientOf m), Node m, Binary a)
          => Remotable m (Client a) where
@@ -61,7 +53,18 @@ instance forall m a. (Tunnel Client (ClientOf m), Node m, Binary a)
     Right x <- decodeBlob =<< call pm k (reverse xs)
     return x
 
-instance (Result (m a) ~ m, MonadBlob m, Binary a) => Blobby m (m a) where
+-- | A function that may act as a server-side callback. That is, one where all
+--   arguments and return values are serializable.
+class (Result a ~ m, MonadBlob m) => Callback m a where
+  -- | Serializify a function so it may be called remotely.
+  blob :: a -> [Blob] -> m Blob
+
+instance (Binary a, Callback m b) => Callback m (a -> b) where
+  blob f (x:xs) = do
+    Right x' <- decodeBlob x
+    blob (f x') xs
+
+instance (Result (m a) ~ m, MonadBlob m, Binary a) => Callback m (m a) where
   blob m _ = fmap encode m
 
 -- | Invoke a remote function: send the RPC call over the network and wait for
@@ -83,7 +86,7 @@ call pm k xs = do
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[Blob] -> Server Blob@, with the same semantics.
 --   This allows the function to be called remotely via a static pointer.
-import_ :: (Node m, Blobby m a) => a -> Import m a
+import_ :: (Node m, Callback m a) => a -> Import m a
 import_ f = Import $ \x -> invoke (blob f x)
 
 -- | Turn a static pointer to a serializified function into a client-side
