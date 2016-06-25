@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 -- | Haste.App client-server protocol.
 module Haste.App.Protocol where
 import Control.Exception
@@ -5,6 +6,7 @@ import Control.Monad
 import Data.Typeable
 import GHC.StaticPtr
 import Haste.Binary
+import qualified Haste.Foreign as HF
 
 type Nonce = Int
 
@@ -13,6 +15,9 @@ data Endpoint = Endpoint
   { endpointHost :: !String
   , endpointPort :: !Int
   } deriving (Show, Eq, Ord)
+
+instance HF.FromAny Endpoint where
+  fromAny o = Endpoint <$> HF.get o "host" <*> HF.get o "port"
 
 -- | A method call to the server.
 data ServerCall = ServerCall

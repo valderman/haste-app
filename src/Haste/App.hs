@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, GeneralizedNewtypeDeriving #-}
 module Haste.App
-  ( Endpoint (..), Node (..)
+  ( EndpointConfig (..), Endpoint (..), Node (..)
   , MonadBlob (..), MonadIO (..)
   , Callback, Remotable, Remote, RunsOn, remote, import_, annotate
   , Client, Server, ServerException (..), Proxy (..), runApp, invokeServer
@@ -8,7 +8,7 @@ module Haste.App
 import Data.Proxy
 import Haste.App.Remote
 import Haste.App.Client
-import Haste.App.Server
+import Haste.App.Config
 import Haste.App.Protocol
 import Haste.App.Routing
 import Control.Monad.IO.Class
@@ -17,6 +17,7 @@ import Haste.Binary
 #ifdef __HASTE__
 import Haste.Concurrent (concurrent, fork)
 #else
+import Haste.App.Server
 import Control.Concurrent (forkIO, threadDelay)
 import Data.List
 import Unsafe.Coerce
@@ -32,14 +33,14 @@ import Data.ByteString.Lazy.UTF8
 --   handler for each. However, it is perfectly possible to build a single
 --   server-side binary to handle *all* endpoints, and run that binary on
 --   multiple machines.
-runApp :: [Endpoint] -> Client () -> IO ()
+runApp :: [EndpointConfig] -> Client () -> IO ()
 #ifdef __HASTE__
 runApp _ = concurrent . fork . runClient
 #else
 runApp eps _ = mapM_ (forkIO . serverLoop) ports >> eternalSlumber
   where
     eternalSlumber = threadDelay (30*60*1000000) >> eternalSlumber
-    ports = snub [port | Endpoint _ port <- eps]
+    ports = snub [port | Endpoint _ port <- map resolveEndpoint eps]
     snub = map head . group . sort
 #endif
 

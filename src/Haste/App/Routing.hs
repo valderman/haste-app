@@ -13,6 +13,7 @@ module Haste.App.Routing
 import Data.Proxy
 import Haste.Binary -- for serialization
 import Haste.App.Protocol
+import Haste.App.Config
 
 -- | Nest a server call in zero or more server hop packets, as directed by the
 --   given path.
@@ -30,8 +31,10 @@ instance Tunnel client client where
 -- | Inductive case: the current node is attached to the next node in the path.
 instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
          Tunnel client server where
-  tunnel cp sp call = tunnel cp sp' $ ServerHop (endpoint sp) (encode call)
-    where sp' = Proxy :: Proxy (ClientOf server)
+  tunnel cp sp call = tunnel cp sp' $ ServerHop ep (encode call)
+    where
+      ep = resolveEndpoint $ endpoint sp
+      sp' = Proxy :: Proxy (ClientOf server)
 
 -- * Defining and calling servers
 
@@ -47,7 +50,7 @@ class MonadBlob m => Node (m :: * -> *) where
   type ClientOf m :: * -> *
 
   -- | The location at which the node can be reached.
-  endpoint :: Proxy m -> Endpoint
+  endpoint :: Proxy m -> EndpointConfig
 
   -- | Perform a computation of the given node type.
   invoke :: m a -> IO a
