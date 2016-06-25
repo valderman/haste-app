@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 -- | Boilerplate for writing simple applications that only need a single
 --   server component, as with the original Haste.App described in.
 --   <http://haste-lang.org/pubs/haskell14.pdf>.
@@ -11,7 +12,7 @@ module Haste.App.Simple
   , module Haste.App.Standalone
   , module Haste.Events
   , module Haste.DOM.JSString
-  , runSimple
+  , runSimpleApp
   ) where
 import Data.Proxy
 import Haste
@@ -29,4 +30,4 @@ instance Node Server where
 --   nodes, but all except @Server@ must have their own binaries running
 --   somewhere on the network.
 runSimpleApp :: Client () -> IO ()
-runSimpleApp = runStandaloneApp [endpoint :: Proxy (Proxy Server)]
+runSimpleApp = runStandaloneApp [endpoint (Proxy :: Proxy Server)]

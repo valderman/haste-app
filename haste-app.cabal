@@ -19,7 +19,8 @@ flag no-standalone
 
 library
   exposed-modules:
-    Haste.App
+    Haste.App,
+    Haste.App.Simple
   other-modules:
     Haste.App.Client,
     Haste.App.Config,
