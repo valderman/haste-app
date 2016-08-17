@@ -9,6 +9,9 @@ import Haste.Concurrent
 import Haste.WebSockets
 import Haste.App.Protocol
 
+-- For Client MonadEvent instance
+import Haste.Events (MonadEvent (..))
+
 data Env = Env
   { nonceSupply   :: IORef Nonce
   , resultMap     :: IORef (Map.Map Nonce (MVar Blob))
@@ -36,6 +39,16 @@ instance MonadIO Client where
 instance MonadBlob Client where
   getBlobData = liftCIO . getBlobData
   getBlobText' = liftCIO . getBlobText'
+
+instance MonadEvent Client where
+  mkHandler f = do
+    st <- Client return
+    return $ concurrent . runClientWith st . f
+
+-- | Run a client with the given environment. Absolutely do not use unless
+--   you're absolutely sure what you're doing!
+runClientWith :: Env -> Client () -> CIO ()
+runClientWith env (Client m) = m env
 
 -- | Run a client computation in a new environment.
 --   Several clients may run concurrently, and nonces need not be globally
