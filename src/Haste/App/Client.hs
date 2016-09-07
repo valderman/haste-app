@@ -8,6 +8,7 @@ import Haste.Binary hiding (get)
 import Haste.Concurrent
 import Haste.WebSockets
 import Haste.App.Protocol
+import qualified Haste.JSString as JSS
 
 -- For Client MonadEvent instance
 import Haste.Events (MonadEvent (..))
@@ -98,7 +99,7 @@ sendOverWS ep blob = do
           (Map.insert ep (liftCIO . wsSendBlob w) cm, ())
       sendOverWS ep blob
   where
-    url = concat ["ws://", endpointHost ep, ":", show (endpointPort ep)]
+    url = JSS.pack $ concat ["ws://", endpointHost ep, ":", show (endpointPort ep)]
     handler resmapref _ msg = do
       msg' <- getBlobData msg
       join . liftIO $ atomicModifyIORef' resmapref $ \m ->
