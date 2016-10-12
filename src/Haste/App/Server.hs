@@ -1,16 +1,22 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE CPP, OverloadedStrings #-}
 module Haste.App.Server (unsafeFromBlob, serverLoop) where
 #ifdef __HASTE__
 unsafeFromBlob _ = undefined
 serverLoop _ = pure undefined
 #else
 import Control.Concurrent
+import Control.Monad ((>=>))
 import qualified Data.ByteString.Lazy as BSL
 import GHC.StaticPtr
 import Unsafe.Coerce
 import Network.WebSockets as WS
 import Haste.Binary
 import Haste.App.Protocol
+
+import Network.HTTP.Types
+import Network.Wai
+import Network.Wai.Handler.Warp
+import Network.Wai.Handler.WebSockets
 
 unsafeFromBlob :: Blob -> BSL.ByteString
 unsafeFromBlob = unsafeCoerce
@@ -20,13 +26,17 @@ unsafeToBlobData = unsafeCoerce
 
 serverLoop :: Int -> IO ()
 serverLoop port = do
-    WS.runServer "0.0.0.0" port $ \pending -> do
-      acceptRequest pending >>= clientLoop
+    run port $ websocketsOr defaultConnectionOptions handleWS handleHttp
   where
+    handleWS = acceptRequest >=> clientLoop
+
     clientLoop c = do
       msg <- receiveData c
       _ <- forkIO $ handlePacket c (unsafeToBlobData msg)
       clientLoop c
+
+    handleHttp _ resp = do
+      resp $ responseLBS status404 [] "WebSockets only"
 
 handlePacket :: Connection -> BlobData -> IO ()
 handlePacket c msg = do
