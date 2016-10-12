@@ -9,7 +9,7 @@ import System.Environment
 import System.Exit
 import System.IO
 import System.IO.Unsafe
-import qualified Haste.App.Protocol as Proto (Endpoint (..))
+import qualified Haste.App.Protocol as Proto (Endpoint (..), TLSConfig (..))
 import Haste.App.Config
 
 -- | What should we do when we start?
@@ -33,9 +33,10 @@ data Config = Config
   } deriving Show
 
 -- | Default configuration for a list of endpoint names.
+--   Will not use TLS.
 defaultConfig :: [String] -> Config
 defaultConfig endpoints = Config
-  { endpoints    = zip endpoints [Proto.Endpoint h p | p <- [24601..]]
+  { endpoints    = zip endpoints [Proto.Endpoint h p Nothing | p <- [24601..]]
   , httpPort     = 8080
   , runMode      = Server
   , dataDir      = Nothing
@@ -49,8 +50,8 @@ defaultConfig endpoints = Config
 setHost :: String -> String -> Config -> Config
 setHost name host c = c {endpoints = go $ endpoints c}
   where
-    go (x@(name', Proto.Endpoint _ p):xs)
-      | name == name' = (name', Proto.Endpoint host p):xs
+    go (x@(name', Proto.Endpoint _ p tls):xs)
+      | name == name' = (name', Proto.Endpoint host p tls):xs
       | otherwise     = x:go xs
     go []             = []
 
@@ -59,18 +60,34 @@ setPort name port c
   | [(p, "")] <- reads port = c {endpoints = go p $ endpoints c}
   | otherwise               = c
   where
-    go p (x@(name', Proto.Endpoint h _):xs)
-      | name == name' = (name', Proto.Endpoint h p):xs
+    go p (x@(name', Proto.Endpoint h _ tls):xs)
+      | name == name' = (name', Proto.Endpoint h p tls):xs
       | otherwise     = x:go p xs
     go _ []             = []
+
+setTLS :: String -> String -> Config -> Config
+setTLS name t c
+  | Just tls <- readTLS t = c {endpoints = go (Just tls) $ endpoints c}
+  | otherwise             = c
+  where
+    go tls (x@(name', Proto.Endpoint h p _):xs)
+      | name == name' = (name', Proto.Endpoint h p tls):xs
+      | otherwise     = x:go tls xs
+    go _ []             = []
+
+    readTLS s =
+      case break (== ':') s of
+        (cert, ':':key)
+          | all (not . null) [cert, key] -> Just (Proto.TLSConfig cert key)
+          | otherwise                    -> Nothing
 
 readWithDefault :: Read a => a -> String -> a
 readWithDefault def s
   | [(x, "")] <- reads s = x
   | otherwise            = def
 
-endpointOpts :: [Char] -> [Char] -> String -> [OptDescr (Config -> Config)]
-endpointOpts shorthost shortport name =
+endpointOpts :: [Char] -> [Char] -> [Char] -> String -> [OptDescr (Config -> Config)]
+endpointOpts shorthost shortport shorttls name =
   [ Option shortport [name ++ "-port"]
     (ReqArg (setPort name) "PORT") $
     "Port to use for internal app communication over endpoint `" ++ name ++
@@ -79,17 +96,22 @@ endpointOpts shorthost shortport name =
     (ReqArg (setHost name) "HOST") $
     "Host from which the endpoint `" ++ name ++ "' is served.\n" ++
     "Default: autodetect"
+  , Option shorttls [name ++ "-tls"]
+    (ReqArg (setTLS name) "CERTFILE:KEYFILE") $
+    "Enable TLS for endpoint `" ++ name ++ "' using the given KEYFILE and " ++
+    "CERTFILE.\n" ++
+    "Default: don't use TLS"
   ]
 
 optspec :: [String] -> [OptDescr (Config -> Config)]
 optspec eps =
-  concat (map (endpointOpts shorthost shortport) eps) ++
+  concat (map (endpointOpts shorthost shortport shorttls) eps) ++
   [ Option "p" ["http-port"]
     (ReqArg (\p c -> c {httpPort = readWithDefault (httpPort c) p}) "PORT") $
     "Port on which users can access the application through their web " ++
     "browser.\n" ++
     "Default: 8080"
-    
+
   , Option "d" ["data-directory"]
     (ReqArg (\d c -> c {dataDir = Just d}) "DIR") $
     "Directory from which to serve static files.\n" ++
@@ -141,6 +163,7 @@ optspec eps =
   where
     shorthost = if length eps == 1 then "h" else ""
     shortport = if length eps == 1 then "a" else ""
+    shorttls  = if length eps == 1 then "t" else ""
 
 helpHeader :: String
 helpHeader = concat

@@ -39,12 +39,12 @@ runServer staticeps cfg = do
   -- Set up working directory and print diagnostics
   setCurrentDirectory (workDir cfg)
   case endpoints cfg of
-    [(_, Endpoint host _)] -> do
+    [(_, Endpoint host _ _)] -> do
       let hoststr = "http://" ++ host ++ ":" ++ show (httpPort cfg)
       putStrLn $ "Application started on " ++ hoststr
     _ -> do
       putStrLn "Application started on one of:"
-      forM_ (map snd $ endpoints cfg) $ \(Endpoint host _) -> do
+      forM_ (map snd $ endpoints cfg) $ \(Endpoint host _ _) -> do
         putStrLn $"  http://" ++ host ++ ":" ++ show (httpPort cfg)
 
   let allEps = staticeps ++ map (Static . snd) (endpoints cfg)

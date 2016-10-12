@@ -8,6 +8,7 @@ import Control.Monad
 import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.Embed
 import Data.Embed.File
+import Data.Maybe (isJust)
 import System.Environment (getExecutablePath)
 import System.Exit
 import System.Directory
@@ -78,10 +79,11 @@ mkJSMain cfg = BS.concat
   ]
   where
     mkEpConf = BS.intercalate "," . map mkEpEntry
-    mkEpEntry (name, Endpoint h p) = BS.concat
+    mkEpEntry (name, Endpoint h p tls) = BS.concat
       [ "{'", BS.pack name, "': "
       , "{'host': '", BS.pack h, "'"
       , ",'port': ", BS.pack (show p)
+      , ",'tls':  ", if isJust tls then "true" else "false"
       , "}}"
       ]
 

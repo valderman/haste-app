@@ -37,10 +37,10 @@ runApp :: [EndpointConfig] -> Client () -> IO ()
 #ifdef __HASTE__
 runApp _ = concurrent . fork . runClient
 #else
-runApp eps _ = mapM_ (forkIO . serverLoop) ports >> eternalSlumber
+runApp eps _ = mapM_ (forkIO . uncurry serverLoop) ports >> eternalSlumber
   where
     eternalSlumber = threadDelay (30*60*1000000) >> eternalSlumber
-    ports = snub [port | Endpoint _ port <- map resolveEndpoint eps]
+    ports = snub [(port, tls) | Endpoint _ port tls <- map resolveEndpoint eps]
     snub = map head . group . sort
 #endif
 

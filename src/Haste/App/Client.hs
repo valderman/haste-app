@@ -2,6 +2,7 @@ module Haste.App.Client where
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Maybe (isJust)
 import Data.IORef
 import qualified Data.Map.Strict as Map
 import Haste.Binary hiding (get)
@@ -99,7 +100,10 @@ sendOverWS ep blob = do
           (Map.insert ep (liftCIO . wsSendBlob w) cm, ())
       sendOverWS ep blob
   where
-    url = JSS.pack $ concat ["ws://", endpointHost ep, ":", show (endpointPort ep)]
+    proto ep
+      | isJust (endpointTLS ep) = "wss://"
+      | otherwise               = "ws://"
+    url = JSS.pack $ concat [proto ep, endpointHost ep, ":", show (endpointPort ep)]
     handler resmapref _ msg = do
       msg' <- getBlobData msg
       join . liftIO $ atomicModifyIORef' resmapref $ \m ->

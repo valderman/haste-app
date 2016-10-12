@@ -2,7 +2,7 @@
 module Haste.App.Server (unsafeFromBlob, serverLoop) where
 #ifdef __HASTE__
 unsafeFromBlob _ = undefined
-serverLoop _ = pure undefined
+serverLoop _ _ = pure undefined
 #else
 import Control.Concurrent
 import Control.Monad ((>=>))
@@ -15,7 +15,9 @@ import Haste.App.Protocol
 
 import Network.HTTP.Types
 import Network.Wai
-import Network.Wai.Handler.Warp
+import Network.Wai.Handler.Warp as W
+import Network.Wai.Handler.Warp.Internal as W (settingsPort)
+import Network.Wai.Handler.WarpTLS
 import Network.Wai.Handler.WebSockets
 
 unsafeFromBlob :: Blob -> BSL.ByteString
@@ -24,8 +26,13 @@ unsafeFromBlob = unsafeCoerce
 unsafeToBlobData :: BSL.ByteString -> BlobData
 unsafeToBlobData = unsafeCoerce
 
-serverLoop :: Int -> IO ()
-serverLoop port = do
+-- | Run the server event loop for a single endpoint.
+serverLoop :: Int -> Maybe TLSConfig -> IO ()
+serverLoop port mtls
+  | Just (TLSConfig cert key) <- mtls = do
+    runTLS (tlsSettings cert key) (W.defaultSettings {W.settingsPort = port}) $ do
+      websocketsOr defaultConnectionOptions handleWS handleHttp
+  | otherwise = do
     run port $ websocketsOr defaultConnectionOptions handleWS handleHttp
   where
     handleWS = acceptRequest >=> clientLoop
@@ -46,7 +53,7 @@ handlePacket c msg = do
     _                                    -> error "invalid server call"
 
 handleHop :: Connection -> Endpoint -> Blob -> IO ()
-handleHop c (Endpoint host port) packet = do
+handleHop c (Endpoint host port _) packet = do
   WS.runClient host port "/" $ \ c' -> do
     sendBinaryData c' $ unsafeFromBlob packet
     reply <- receiveData c'

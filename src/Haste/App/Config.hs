@@ -7,7 +7,8 @@ import Control.Exception
 
 -- | A configurable network endpoint.
 data EndpointConfig =
-  -- | A static network endpoint: host and port are known at compile-time.
+  -- | A static network endpoint: host, port and TLS key and certificate
+  --   (if applicable) are known at compile-time.
   Static {staticEndpoint :: !Proto.Endpoint}
   -- | A dynamically configurable network endpoint with a name: the host
   --   and port of this endpoint is configured at run-time through the
@@ -15,8 +16,8 @@ data EndpointConfig =
   --   before the Haste.App program starts executing. Example:
   --
   --     window.__haste_app_endpoints = {
-  --         'my_endpoint': {'host': 'example.com', 'port': 24601}
-  --       };
+  --       'my_endpoint': {'host': 'example.com', 'port': 24601, 'tls': false}
+  --     };
   | Configurable {endpointName :: !String}
     deriving Show
 
