@@ -73,3 +73,4 @@ TODO
 * Add REST service local call endpoint constructor and EDSL for describing how
   to translate from function calls to such services.
 * Add long-polling simulation of server-triggered events?
+* HTTPS support for files served using Haste.App.Standalone.
