@@ -9,6 +9,7 @@ import Haste.Binary hiding (get)
 import Haste.Concurrent
 import Haste.WebSockets
 import Haste.App.Protocol
+import Haste.App.Config (EndpointConfig, resolveEndpoint)
 import qualified Haste.JSString as JSS
 
 -- For Client MonadEvent instance
@@ -17,7 +18,7 @@ import Haste.Events (MonadEvent (..))
 data Env = Env
   { nonceSupply   :: IORef Nonce
   , resultMap     :: IORef (Map.Map Nonce (MVar Blob))
-  , connectionMap :: IORef (Map.Map Endpoint (Blob -> Client ()))
+  , connectionMap :: IORef (Map.Map Endpoint WebSocket)
   }
 
 newtype Client a = Client {unC :: Env -> CIO a}
@@ -78,32 +79,32 @@ newResult = Client $ \env -> liftIO $ do
   atomicModifyIORef' (resultMap env) (\m -> (Map.insert n v m, ()))
   return (n, v)
 
--- | Send a blob to an endpoint over a web socket. If there is no open web
---   socket to the given endpoint, we open a new one.
-sendOverWS :: Endpoint -> Blob -> Client ()
-sendOverWS ep blob = do
-  -- TODO: use endpoint map to handle disconnects?
-  msend <- Map.lookup ep <$> get connectionMap
-  case msend of
-    -- Connection already open; send message.
-    Just send -> send blob
+-- | Connect to an endpoint. If the endpoint is already connected, the old
+--   connection is closed first.
+--   Returns @True@ if the connection succeeded, otherwise @False@.
+reconnect :: EndpointConfig -> Client Bool
+reconnect = reconnect' . resolveEndpoint
 
-    -- No connection yet; open one.
-    _         -> do
-      r <- Client $ pure . connectionMap
-      rmref <- Client $ pure . resultMap
-      liftCIO $ do
-        w <- withBinaryWebSocket url (handler rmref)
-                                     (error "WebSocket error")
-                                     return
-        liftIO $ atomicModifyIORef' r $ \cm ->
-          (Map.insert ep (liftCIO . wsSendBlob w) cm, ())
-      sendOverWS ep blob
+-- | Worker for 'reconnect'.
+reconnect' :: Endpoint -> Client Bool
+reconnect' ep = do
+    r <- Client $ pure . connectionMap
+    rmr <- Client $ pure . resultMap
+
+    -- Close old connection
+    mws <- liftIO $ atomicModifyIORef' r $ \cm ->
+      (Map.delete ep cm, Map.lookup ep cm)
+    maybe (pure ()) (liftCIO . wsClose) mws
+
+    -- Open new one
+    liftCIO $ withBinaryWebSocket url (handler rmr) (return False) $ \ws -> do
+      liftIO $ atomicModifyIORef' r $ \cm -> (Map.insert ep ws cm, True)
   where
     proto ep
       | isJust (endpointTLS ep) = "wss://"
       | otherwise               = "ws://"
     url = JSS.pack $ concat [proto ep, endpointHost ep, ":", show (endpointPort ep)]
+          
     handler resmapref _ msg = do
       msg' <- getBlobData msg
       join . liftIO $ atomicModifyIORef' resmapref $ \m ->
@@ -113,3 +114,22 @@ sendOverWS ep blob = do
             | otherwise                    -> (m, error "Bad nonce!")
           _ | Right e <- decode msg'       -> (m, throw (e :: ServerException))
             | otherwise                    -> (m, error "Bad server reply!")
+
+-- | Send a blob to an endpoint over a web socket. If there is no open web
+--   socket to the given endpoint, we open a new one. If a new connection can't
+--   be opened, retry until it succeeds.
+sendOverWS :: Endpoint -> Blob -> Client ()
+sendOverWS ep blob = do
+  -- TODO: give user control over reconnection attempts and disconnection
+  --       handlers
+  mws <- Map.lookup ep <$> get connectionMap
+  case mws of
+    Just ws -> do
+      success <- liftCIO $ wsSendBlob ws blob
+      unless success $ do
+        r <- Client $ pure . connectionMap
+        liftIO $ do
+          atomicModifyIORef' r $ \cm -> (Map.delete ep cm, ())
+        liftCIO $ wsClose ws
+        sendOverWS ep blob
+    _       -> reconnect' ep >> sendOverWS ep blob

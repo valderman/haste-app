@@ -3,7 +3,8 @@ module Haste.App
   ( EndpointConfig (..), Endpoint (..), Node (..)
   , MonadBlob (..), MonadIO (..)
   , Callback, Remotable, Remote, RunsOn, remote, import_, annotate
-  , Client, Server, ServerException (..), Proxy (..), runApp, invokeServer
+  , Client, Server, ServerException (..), Proxy (..)
+  , runApp, invokeServer, reconnect
   ) where
 import Data.Proxy
 import Haste.App.Remote

@@ -10,11 +10,9 @@ import Haste.App
 #ifdef __HASTE__
 import Control.Monad (void)
 import Haste
-import Haste.Foreign
 #else
 import Haste.App.Standalone.Server
 #endif
-import System.IO.Unsafe
 
 -- | Run a Haste.App application in standalone mode: host/port configuration
 --   is read from the command line, and a local web server is started to serve
