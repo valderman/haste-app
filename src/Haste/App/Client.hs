@@ -122,6 +122,9 @@ runClient (Client m) = do
         ["Connection lost; reconnecting in ", toJSString n, " seconds..."]
       void $ setTimer (Once 1000) $ updateMsg e (n-1)
 
+    -- 10 minutes max reconnection delay
+    maxDelay = 10*60*1000
+
     keepRetrying n ep e = do
       updateMsg e (n `div` 1000)
       success <- reconnect ep
@@ -131,7 +134,7 @@ runClient (Client m) = do
             deleteChild documentBody e
         else do
           sleep n
-          keepRetrying (max n (n*2)) ep e
+          keepRetrying (min maxDelay (n*2)) ep e
 
     reconnected ep = return ()
 
