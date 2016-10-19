@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 module Haste.App.Client where
 import Control.Exception
 import Control.Monad
@@ -12,13 +13,20 @@ import Haste.App.Protocol
 import Haste.App.Config (EndpointConfig, resolveEndpoint)
 import qualified Haste.JSString as JSS
 
+-- For default onDisconnect handler
+import Haste (toJSString, catJSStr, setTimer, Interval (..))
+import Haste.DOM.JSString
+import Haste.Events
+
 -- For Client MonadEvent instance
 import Haste.Events (MonadEvent (..))
 
 data Env = Env
-  { nonceSupply   :: IORef Nonce
-  , resultMap     :: IORef (Map.Map Nonce (MVar Blob))
-  , connectionMap :: IORef (Map.Map Endpoint (WebSocket Blob))
+  { nonceSupply       :: IORef Nonce
+  , resultMap         :: IORef (Map.Map Nonce (MVar Blob))
+  , connectionMap     :: IORef (Map.Map Endpoint (Either Barrier (WebSocket Blob)))
+  , disconnectHandler :: IORef (Endpoint -> Client ())
+  , reconnectHandler  :: IORef (Endpoint -> Client ())
   }
 
 newtype Client a = Client {unC :: Env -> CIO a}
@@ -48,6 +56,29 @@ instance MonadEvent Client where
     st <- Client return
     return $ concurrent . runClientWith st . f
 
+-- | A barrier.
+newtype Barrier = Barrier (MVar ())
+
+-- | Open a barrier. Calling 'await' on the barrier will no longer block.
+openBarrier :: Barrier -> Client ()
+openBarrier (Barrier v) = liftCIO $ void $ tryPutMVar v ()
+
+-- | Block until the given barrier becomes open. If it is already open, pass
+--   immediately.
+await :: Barrier -> Client ()
+await (Barrier v) = liftCIO $ readMVar v
+
+-- | Create a new barrier. The barrier is initially closed.
+newBarrier :: Client Barrier
+newBarrier = Barrier <$> liftCIO newEmptyMVar
+
+-- | Sleep @n@ milliseconds.
+sleep :: Int -> Client ()
+sleep n = do
+  b <- newBarrier
+  setTimer (Once n) $ openBarrier b
+  await b
+
 -- | Run a client with the given environment. Absolutely do not use unless
 --   you're absolutely sure what you're doing!
 runClientWith :: Env -> Client () -> CIO ()
@@ -59,9 +90,50 @@ runClientWith env (Client m) = m env
 --   servers, and will thus not even see replies intended for other clients.
 runClient :: Client () -> CIO ()
 runClient (Client m) = do
-  m =<< liftIO (Env <$> newIORef 0
-                    <*> newIORef Map.empty
-                    <*> newIORef Map.empty)
+    m =<< liftIO (Env <$> newIORef 0
+                      <*> newIORef Map.empty
+                      <*> newIORef Map.empty
+                      <*> newIORef dropped
+                      <*> newIORef reconnected)
+  where
+    -- TODO: handle multiple simultaneous disconnects more nicely
+    reconnectId = "__haste_app_reconnect_cover"
+    dropped ep = do
+      cover <- newElem "div" `with`
+        [ style "position" =: "fixed"
+        , style "top" =: "0"
+        , style "left" =: "0"
+        , style "width" =: "100%"
+        , style "height" =: "100%"
+        , "id" =: reconnectId
+        , style "background-color" =: "rgba(255, 255, 255, 0.6)"
+        , style "text-align" =: "center"
+        , style "font-size" =: "24pt"
+        , "innerText" =: "Connection lost; reconnecting..."
+        , style "padding-top" =: "10em"
+        ]
+      appendChild documentBody cover
+      keepRetrying 250 ep cover
+
+    updateMsg e 0 = do
+      setProp e "innerText" "Connection lost; reconnecting..."
+    updateMsg e n = do
+      setProp e "innerText" $ catJSStr ""
+        ["Connection lost; reconnecting in ", toJSString n, " seconds..."]
+      void $ setTimer (Once 1000) $ updateMsg e (n-1)
+
+    keepRetrying n ep e = do
+      updateMsg e (n `div` 1000)
+      success <- reconnect ep
+      if success
+        then do
+          withElem reconnectId $ \e -> do
+            deleteChild documentBody e
+        else do
+          sleep n
+          keepRetrying (max n (n*2)) ep e
+
+    reconnected ep = return ()
 
 -- | Lift a CIO action into the Client monad.
 liftCIO :: CIO a -> Client a
@@ -71,6 +143,15 @@ liftCIO m = Client $ \_ -> m >>= \x -> return x
 get :: (Env -> IORef a) -> Client a
 get f = Client $ \env -> liftIO $ readIORef (f env)
 
+-- | Read an IORef from the session.
+getR :: (Env -> IORef a) -> Client (IORef a)
+getR f = Client $ pure . f
+
+-- | Atomically and strictly update an IORef in the session.
+update :: (Env -> IORef a) -> (a -> (a, b)) -> Client b
+update ref f = Client $ \env -> do
+  liftIO $ atomicModifyIORef' (ref env) f
+
 -- | Create a new nonce and corresponding result MVar.
 newResult :: Client (Nonce, MVar Blob)
 newResult = Client $ \env -> liftIO $ do
@@ -79,28 +160,41 @@ newResult = Client $ \env -> liftIO $ do
   atomicModifyIORef' (resultMap env) (\m -> (Map.insert n v m, ()))
   return (n, v)
 
+-- | Perform the given computation whenever a connection is lost.
+onDisconnect :: (Endpoint -> Client ()) -> Client ()
+onDisconnect handler = update disconnectHandler $ \_ -> (handler, ())
+
+-- | Perform the given computation whenever a previously lost computation
+--   is restored.
+onReconnect :: (Endpoint -> Client ()) -> Client ()
+onReconnect handler = update reconnectHandler $ \_ -> (handler, ())
+
 -- | Connect to an endpoint. If the endpoint is already connected, the old
---   connection is closed first.
+--   connection is kept open instead. If a dropped connection is restored,
+--   the @onReconnect@ handler will be called.
 --   Returns @True@ if the connection succeeded, otherwise @False@.
-reconnect :: EndpointConfig -> Client Bool
-reconnect = reconnect' . resolveEndpoint
-
--- | Worker for 'reconnect'.
-reconnect' :: Endpoint -> Client Bool
-reconnect' ep = do
-    r <- Client $ pure . connectionMap
-    rmr <- Client $ pure . resultMap
-
-    -- Close old connection
-    mws <- liftIO $ atomicModifyIORef' r $ \cm ->
-      (Map.delete ep cm, Map.lookup ep cm)
-    maybe (pure ()) (liftCIO . wsClose) mws
-
-    -- Open new one
-    mws' <- liftCIO $ wsOpen (cfg rmr)
-    case mws' of
-      Just ws' -> liftIO $ atomicModifyIORef' r $ \cm -> (Map.insert ep ws' cm, True)
-      _        -> return False
+reconnect :: Endpoint -> Client Bool
+reconnect ep = do
+    -- Open new connection
+    rmr <- getR resultMap
+    mws <- liftCIO $ wsOpen (cfg rmr)
+    case mws of
+      Just ws -> do
+        mbarrier <- update connectionMap $ \cm ->
+          case Map.lookup ep cm of
+            -- If we're reconnecting a closed socked, call reconnect handler
+            Just (Left barrier) -> (Map.insert ep (Right ws) cm, Just barrier)
+            -- If we're reconnecting an open socket, just leave the old one open
+            Just (Right _)      -> (cm, Nothing)
+            -- If we're connecting for the first time, don't call any handlers
+            _                   -> (Map.insert ep (Right ws) cm, Nothing)
+        flip (maybe (return ())) mbarrier $ \barrier -> do
+          reconnected <- get reconnectHandler
+          reconnected ep
+          openBarrier barrier
+        return True
+      _ -> do
+        return False
   where
     proto ep
       | isJust (endpointTLS ep) = "wss://"
@@ -127,16 +221,37 @@ reconnect' ep = do
 --   be opened, retry until it succeeds.
 sendOverWS :: Endpoint -> Blob -> Client ()
 sendOverWS ep blob = do
-  -- TODO: give user control over reconnection attempts and disconnection
-  --       handlers
   mws <- Map.lookup ep <$> get connectionMap
   case mws of
-    Just ws -> do
+    -- If we found a WebSocket, we attempt to make a call.
+    Just (Right ws) -> do
       success <- liftCIO $ wsSend ws blob
+      -- If the call fails, we must check if we're the first to detect failure.
+      -- If we're the first to detect failure (that is, the socket is still
+      -- there, and it's the same socket so it hasn't been reconnected while we
+      -- weren't looking), replace it with a barrier and call the disconnect
+      -- handler. The barrier will be opened when the socket is reconnected.
       unless success $ do
-        r <- Client $ pure . connectionMap
-        liftIO $ do
-          atomicModifyIORef' r $ \cm -> (Map.delete ep cm, ())
-        liftCIO $ wsClose ws
+        bar <- newBarrier
+        callHandler <- update connectionMap $ \cm ->
+          case Map.lookup ep cm of
+            Just (Right ws') | ws == ws' -> (Map.insert ep (Left bar) cm, True)
+            _                            -> (cm, False)
+        when callHandler $ do
+          disconnect <- get disconnectHandler
+          disconnect ep
+
+        -- Retry after the barrier opens
+        await bar
         sendOverWS ep blob
-    _       -> reconnect' ep >> sendOverWS ep blob
+
+    -- If we found a barrier, wait for it to open and then retry.
+    Just (Left barrier) -> do
+      await barrier
+      sendOverWS ep blob
+
+    -- If we found nothing, the endpoint hasn't previously been connected, so
+    -- just connect it and retry.
+    _ -> do
+      reconnect ep
+      sendOverWS ep blob

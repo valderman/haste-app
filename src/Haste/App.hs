@@ -4,7 +4,7 @@ module Haste.App
   , MonadBlob (..), MonadIO (..)
   , Callback, Remotable, Remote, RunsOn, remote, import_, annotate
   , Client, Server, ServerException (..), Proxy (..)
-  , runApp, invokeServer, reconnect
+  , runApp, invokeServer, reconnect, onDisconnect, onReconnect
   ) where
 import Data.Proxy
 import Haste.App.Remote

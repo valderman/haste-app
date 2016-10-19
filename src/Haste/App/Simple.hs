@@ -16,6 +16,7 @@ module Haste.App.Simple
   ) where
 import Data.Proxy
 import Haste
+import Haste.App.Config (resolveEndpoint)
 import Haste.App.Standalone
 import Haste.DOM.JSString
 import Haste.Events
@@ -27,8 +28,8 @@ instance Node Server where
 
 -- | 'Endpoint' of the @Server@ node, used by @Haste.App.Simple@.
 --   Mainly useful as an argument to 'reconnect'.
-simpleEndpoint :: EndpointConfig
-simpleEndpoint = endpoint (Proxy :: Proxy Server)
+simpleEndpoint :: Endpoint
+simpleEndpoint = resolveEndpoint $ endpoint (Proxy :: Proxy Server)
 
 -- | Run a simple application in which a single endpoint, 'Server', is run
 --   on the server-side. @runSimple@ can still be used with any number of
