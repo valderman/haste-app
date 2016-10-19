@@ -18,7 +18,7 @@ import Haste.Events (MonadEvent (..))
 data Env = Env
   { nonceSupply   :: IORef Nonce
   , resultMap     :: IORef (Map.Map Nonce (MVar Blob))
-  , connectionMap :: IORef (Map.Map Endpoint WebSocket)
+  , connectionMap :: IORef (Map.Map Endpoint (WebSocket Blob))
   }
 
 newtype Client a = Client {unC :: Env -> CIO a}
@@ -97,13 +97,20 @@ reconnect' ep = do
     maybe (pure ()) (liftCIO . wsClose) mws
 
     -- Open new one
-    liftCIO $ withBinaryWebSocket url (handler rmr) (return False) $ \ws -> do
-      liftIO $ atomicModifyIORef' r $ \cm -> (Map.insert ep ws cm, True)
+    mws' <- liftCIO $ wsOpen (cfg rmr)
+    case mws' of
+      Just ws' -> liftIO $ atomicModifyIORef' r $ \cm -> (Map.insert ep ws' cm, True)
+      _        -> return False
   where
     proto ep
       | isJust (endpointTLS ep) = "wss://"
       | otherwise               = "ws://"
     url = JSS.pack $ concat [proto ep, endpointHost ep, ":", show (endpointPort ep)]
+
+    cfg rmr = noHandlers
+      { wsOpenURL   = url
+      , wsOnMessage = handler rmr
+      }
           
     handler resmapref _ msg = do
       msg' <- getBlobData msg
@@ -125,7 +132,7 @@ sendOverWS ep blob = do
   mws <- Map.lookup ep <$> get connectionMap
   case mws of
     Just ws -> do
-      success <- liftCIO $ wsSendBlob ws blob
+      success <- liftCIO $ wsSend ws blob
       unless success $ do
         r <- Client $ pure . connectionMap
         liftIO $ do
