@@ -74,3 +74,4 @@ TODO
   to translate from function calls to such services.
 * Add long-polling simulation of server-triggered events?
 * HTTPS support for files served using Haste.App.Standalone.
+* Handle disconnects between non-server nodes.
