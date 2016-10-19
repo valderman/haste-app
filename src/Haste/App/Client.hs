@@ -161,6 +161,10 @@ newResult = Client $ \env -> liftIO $ do
   return (n, v)
 
 -- | Perform the given computation whenever a connection is lost.
+--   Note that this handler is responsible for restoring the dropped
+--   connection. The default handler repeatedly tries to reconnect with
+--   exponential backoff; it is highly recommended that any custom
+--   disconnection handlers to the same.
 onDisconnect :: (Endpoint -> Client ()) -> Client ()
 onDisconnect handler = update disconnectHandler $ \_ -> (handler, ())
 
