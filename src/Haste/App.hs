@@ -71,8 +71,9 @@ type RunsOn m = m ()
 --
 --       reverse_ :: String -> Client String
 --       reverse_ = remote $ static (import_ $ \x -> do
---         annotate :: RunsOn Server
---         return (reverse x)
+--           annotate :: RunsOn Server
+--           return (reverse x)
+--         )
 --
 --   This is essentially a more readable way to say @return () :: Server ()@.
 annotate :: Monad m => RunsOn m
