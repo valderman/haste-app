@@ -233,24 +233,7 @@ sendOverWS ep blob = do
     -- If we found a WebSocket, we attempt to make a call.
     Just (Right ws) -> do
       success <- liftCIO $ wsSend ws blob
-      -- If the call fails, we must check if we're the first to detect failure.
-      -- If we're the first to detect failure (that is, the socket is still
-      -- there, and it's the same socket so it hasn't been reconnected while we
-      -- weren't looking), replace it with a barrier and call the disconnect
-      -- handler. The barrier will be opened when the socket is reconnected.
-      unless success $ do
-        bar <- newBarrier
-        callHandler <- update connectionMap $ \cm ->
-          case Map.lookup ep cm of
-            Just (Right ws') | ws == ws' -> (Map.insert ep (Left bar) cm, True)
-            _                            -> (cm, False)
-        when callHandler $ do
-          disconnect <- get disconnectHandler
-          disconnect ep
-
-        -- Retry after the barrier opens
-        await bar
-        sendOverWS ep blob
+      unless success $ handleConnectionFailure ep blob (Just ws)
 
     -- If we found a barrier, wait for it to open and then retry.
     Just (Left barrier) -> do
@@ -258,7 +241,38 @@ sendOverWS ep blob = do
       sendOverWS ep blob
 
     -- If we found nothing, the endpoint hasn't previously been connected, so
-    -- just connect it and retry.
+    -- try to connect first.
     _ -> do
-      reconnect ep
-      sendOverWS ep blob
+      success <- reconnect ep
+      liftIO $ putStrLn $ "reconnect: " ++ show success
+      if success
+        then sendOverWS ep blob
+        else handleConnectionFailure ep blob Nothing
+
+-- | Call the disconnection handler on the given endpoint, wait until
+--   reconnect, and then retry the failed send.
+--
+--   The last argument gives the previous socket for the endpoint, if any.
+--   This is used to determine whether someone else has already handled the
+--   failure by opening a new one and inserting it into the endpoint map.
+handleConnectionFailure :: Endpoint -> Blob -> Maybe (WebSocket Blob) -> Client ()
+handleConnectionFailure ep blob mws = do
+  -- If the call fails, we must check if we're the first to detect failure.
+  -- If we're the first to detect failure (that is, the socket is still
+  -- there, and it's the same socket so it hasn't been reconnected while we
+  -- weren't looking), replace it with a barrier and call the disconnect
+  -- handler. The barrier will be opened when the socket is reconnected.
+  -- If there was no previous socket for the given endpoint, we're obviously
+  -- the first to detect the failure.
+  bar <- newBarrier
+  callHandler <- update connectionMap $ \cm ->
+    case Map.lookup ep cm of
+      Just (Right ws)
+        | maybe True (== ws) mws -> (Map.insert ep (Left bar) cm, True)
+      Nothing                    -> (Map.insert ep (Left bar) cm, True)
+      _                          -> (cm, False)
+  when callHandler $ do
+    disconnect <- get disconnectHandler
+    disconnect ep
+  await bar
+  sendOverWS ep blob
