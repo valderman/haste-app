@@ -44,6 +44,10 @@ instance Monad Client where
     x <- m env
     unC (f x) env
 
+instance MonadConc Client where
+  liftConc = liftCIO
+  fork (Client m) = Client $ \env -> fork (m env)
+
 instance MonadIO Client where
   liftIO = liftCIO . liftIO
 
