@@ -244,7 +244,6 @@ sendOverWS ep blob = do
     -- try to connect first.
     _ -> do
       success <- reconnect ep
-      liftIO $ putStrLn $ "reconnect: " ++ show success
       if success
         then sendOverWS ep blob
         else handleConnectionFailure ep blob Nothing
