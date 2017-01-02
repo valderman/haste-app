@@ -51,10 +51,6 @@ instance MonadConc Client where
 instance MonadIO Client where
   liftIO = liftCIO . liftIO
 
-instance MonadBlob Client where
-  getBlobData = liftCIO . getBlobData
-  getBlobText' = liftCIO . getBlobText'
-
 instance MonadEvent Client where
   mkHandler f = do
     st <- Client return

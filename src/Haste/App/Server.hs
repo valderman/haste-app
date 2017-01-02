@@ -12,6 +12,7 @@ import Unsafe.Coerce
 import Network.WebSockets as WS
 import Haste.Binary
 import Haste.App.Protocol
+import Haste.Concurrent (concurrent, liftIO)
 
 import Network.HTTP.Types
 import Network.Wai
@@ -59,13 +60,15 @@ handleHop c (Endpoint host port _) packet = do
     reply <- receiveData c'
     sendBinaryData c (reply :: BSL.ByteString)
 
+-- | Handle a call to this specific node. Note that the method itself is
+--   executed in the CIO monad by the handler.
 handleCall :: Connection -> Nonce -> StaticKey -> [Blob] -> IO ()
-handleCall c nonce method args = do
-  mm <- unsafeLookupStaticPtr method
+handleCall c nonce method args = concurrent $ do
+  mm <- liftIO $ unsafeLookupStaticPtr method
   case mm of
     Just m -> do
       result <- deRefStaticPtr m args
-      sendBinaryData c $ unsafeFromBlob $ encode $ ServerReply
+      liftIO $ sendBinaryData c $ unsafeFromBlob $ encode $ ServerReply
         { srNonce = nonce
         , srResult = result
         }

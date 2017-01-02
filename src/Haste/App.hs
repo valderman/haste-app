@@ -1,23 +1,22 @@
 {-# LANGUAGE CPP, GeneralizedNewtypeDeriving #-}
 module Haste.App
   ( EndpointConfig (..), Endpoint (..), Node (..)
-  , MonadBlob (..), MonadIO (..)
+  , MonadConc (..), MonadIO (..)
   , Callback, Remotable, Remote, RunsOn, remote, import_, annotate
   , Client, Server, ServerException (..), Proxy (..)
   , runApp, invokeServer, reconnect, onDisconnect, onReconnect
   ) where
+import Control.Monad.IO.Class
 import Data.Proxy
+import Haste.Binary
 import Haste.App.Remote
 import Haste.App.Client
 import Haste.App.Config
 import Haste.App.Protocol
 import Haste.App.Routing
-import Control.Monad.IO.Class
-import Haste.Binary
+import Haste.Concurrent (CIO, concurrent, fork)
 
-#ifdef __HASTE__
-import Haste.Concurrent (concurrent, fork)
-#else
+#ifndef __HASTE__
 import Haste.App.Server
 import Control.Concurrent (forkIO, threadDelay)
 import Data.List
@@ -48,19 +47,8 @@ runApp eps _ = mapM_ (forkIO . uncurry serverLoop) ports >> eternalSlumber
 -- | A server type, providing the base for more advanced, custom servers.
 --   In order to make a simple single-server application, creating an
 --   appropriate instance of 'Node' for 'Server' is all that's needed.
-newtype Server a = Server {invokeServer :: IO a}
-  deriving (Functor, Applicative, Monad, MonadIO)
-
-instance MonadBlob Server where
-  -- Server-side, Blob and BlobData are just different newtypes around the same
-  -- ByteString.
-#ifndef __HASTE__
-  getBlobData = pure . unsafeCoerce
-  getBlobText' = pure . toJSStr . toString . unsafeFromBlob
-#else
-  getBlobData = pure . const undefined
-  getBlobText' = pure . const undefined
-#endif
+newtype Server a = Server {invokeServer :: CIO a}
+  deriving (Functor, Applicative, Monad, MonadIO, MonadConc)
 
 -- | Force the type of a monadic computation. Used to annotate inline remote
 --   imports.

@@ -14,6 +14,7 @@ import Data.Proxy
 import Haste.Binary -- for serialization
 import Haste.App.Protocol
 import Haste.App.Config
+import Haste.Concurrent (CIO)
 
 -- | Nest a server call in zero or more server hop packets, as directed by the
 --   given path.
@@ -39,7 +40,7 @@ instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
 -- * Defining and calling servers
 
 -- | A server node in the network.
-class MonadBlob m => Node (m :: * -> *) where
+class MonadConc m => Node (m :: * -> *) where
   -- | The client to which this node is attached. Each node must be attached to
   --   exactly one client. This means that the attachment relation is not
   --   commutative: if @a@ is attached to @b@, then @b@ may send requests to
@@ -53,4 +54,4 @@ class MonadBlob m => Node (m :: * -> *) where
   endpoint :: Proxy m -> EndpointConfig
 
   -- | Perform a computation of the given node type.
-  invoke :: m a -> IO a
+  invoke :: m a -> CIO a

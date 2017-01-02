@@ -14,7 +14,7 @@ import Haste.App.Client
 import Haste.App.Protocol
 import Haste.App.Routing
 
-newtype Import (m :: * -> *) a = Import ([Blob] -> IO Blob)
+newtype Import (m :: * -> *) a = Import ([Blob] -> CIO Blob)
 
 type family Result a where
   Result (a -> b) = Result b
@@ -42,7 +42,7 @@ instance forall m a. (Tunnel Client (ClientOf m), Node m, Binary a)
 
 -- | A function that may act as a server-side callback. That is, one where all
 --   arguments and return values are serializable.
-class (Result a ~ m, MonadBlob m) => Callback m a where
+class (Result a ~ m, MonadConc m) => Callback m a where
   -- | Serializify a function so it may be called remotely.
   blob :: a -> [Blob] -> m Blob
 
@@ -52,7 +52,7 @@ instance (Binary a, Callback m b) => Callback m (a -> b) where
     blob (f x') xs
   blob _ _ = error "too few arguments to remote function"
 
-instance (Result (m a) ~ m, MonadBlob m, Binary a) => Callback m (m a) where
+instance (Result (m a) ~ m, MonadConc m, Binary a) => Callback m (m a) where
   blob m _ = fmap encode m
 
 -- | Invoke a remote function: send the RPC call over the network and wait for
