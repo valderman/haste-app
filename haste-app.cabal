@@ -21,6 +21,7 @@ executable haste-app
     Commands,
     Commands.Build,
     Commands.Clean,
+    Commands.Configure,
     Commands.Delete,
     Commands.Init,
     Commands.Install,
