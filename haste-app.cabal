@@ -23,6 +23,7 @@ executable haste-app
     Commands.Clean,
     Commands.Delete,
     Commands.Init,
+    Commands.Install,
     Config,
     Environment,
     Options
