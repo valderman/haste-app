@@ -27,10 +27,13 @@ executable haste-app
     Config,
     Environment,
     Options
-  build-depends:
-    base       >= 4.8   && < 4.9,
-    data-embed >= 0.1   && < 0.2,
-    shellmate  >= 0.3.4 && < 0.4
+  if impl(haste)
+    buildable: False
+  else
+    build-depends:
+      base       >= 4.8   && < 4.9,
+      data-embed >= 0.1   && < 0.2,
+      shellmate  >= 0.3.4 && < 0.4
 
 library
   exposed-modules:
