@@ -7,5 +7,5 @@ import Environment
 
 install :: Config -> Shell ()
 install = withBuildEnv $ \cfg -> do
-    cabal cfg ("install" : extraArgs cfg)
-    hasteCabal cfg ("install" : extraArgs cfg)
+    cabal cfg $ withCabalFlags ("install" : extraArgs cfg)
+    hasteCabal cfg $ withCabalFlags ("install" : extraArgs cfg)

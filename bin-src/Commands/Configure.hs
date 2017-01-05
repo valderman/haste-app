@@ -7,5 +7,5 @@ import Environment
 
 configure :: Config -> Shell ()
 configure = withBuildEnv $ \cfg -> do
-    cabal cfg ["configure"]
-    hasteCabal cfg ["configure"]
+    cabal cfg $ withCabalFlags ["configure"]
+    hasteCabal cfg $ withCabalFlags ["configure"]

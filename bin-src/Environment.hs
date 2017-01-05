@@ -46,6 +46,10 @@ hasteCabal :: Config -> [String] -> Shell ()
 hasteCabal cfg args = runTool "haste-cabal" cfg args'
   where args' = ("--sandbox-config-file=" ++ clientSandboxConfig) : args
 
+-- | Add @-fhaste-app@ list of args.
+withCabalFlags :: [String] -> [String]
+withCabalFlags = ("-fhaste-app" :)
+
 -- | Run @cabal@ tool in server sandbox.
 cabal :: Config -> [String] -> Shell ()
 cabal cfg args = runTool "cabal" cfg args'

@@ -4,9 +4,11 @@ import Control.Shell
 
 import Config
 import Environment
+import Commands.Configure
 
 build :: Config -> Shell ()
 build = withBuildEnv $ \cfg -> do
+    configure cfg
     buildServer cfg
     buildClient cfg
 
