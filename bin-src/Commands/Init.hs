@@ -6,7 +6,7 @@ import Config
 import Environment
 
 initialize :: Config -> Shell ()
-initialize cfg = do
+initialize = requireCabal $ \cfg -> do
   mkdir True (scratchDir Server)
   mkdir True (scratchDir Client)
   inDirectory (scratchDir Server) $ do

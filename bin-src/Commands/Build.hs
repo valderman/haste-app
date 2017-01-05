@@ -6,9 +6,9 @@ import Config
 import Environment
 
 build :: Config -> Shell ()
-build cfg = withBuildEnv $ do
-    buildServer
-    buildClient
+build = withBuildEnv $ \cfg -> do
+    buildServer cfg
+    buildClient cfg
 
     when (isDirectory artifactDir) $ rmdir artifactDir
     mkdir True artifactDir
@@ -27,7 +27,7 @@ build cfg = withBuildEnv $ do
 
     reportArtifacts arts
   where
-    buildServer = do
+    buildServer cfg = do
       echo ""
       echo "======================"
       echo "= Building server(s) ="
@@ -35,7 +35,7 @@ build cfg = withBuildEnv $ do
       echo ""
       cabal cfg ["build", buildDir Server]
 
-    buildClient = do
+    buildClient cfg = do
       echo ""
       echo "======================"
       echo "=  Building  client  ="

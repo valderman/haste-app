@@ -20,12 +20,13 @@ hasBuildEnv :: Shell Bool
 hasBuildEnv = isDirectory scratchRoot
 
 -- | Perform the given computation if we're in a Haste.App build environment,
---   otherwise complain and exit.
-withBuildEnv :: Shell a -> Shell a
-withBuildEnv act = do
+--   otherwise complain and exit. Also ensures that @cabal@ and @haste-cabal@
+--   are available.
+withBuildEnv :: (Config -> Shell a) -> Config -> Shell a
+withBuildEnv act = requireCabal $ \cfg -> do
   hbe <- hasBuildEnv
   if hbe
-    then act
+    then act cfg
     else fail "not a Haste.App build environment; use `haste-app init' to create one first"
 
 -- | Name of the cabal sandbox configuration file.

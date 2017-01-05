@@ -82,7 +82,6 @@ TODO
   which aren't, as well as what files to embed into them.
 * Add flags to build tool for passing flags to cabal, printing help, changing
   paths, etc.
-* Have the build tool check that all needed external programs are present.
 * Add short tutorial for build tool.
 * Have the build tool use data-embed directly instead of using binary's `-e`
   flag, to enable Windows support.

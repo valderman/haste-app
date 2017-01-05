@@ -6,6 +6,6 @@ import Config
 import Environment
 
 configure :: Config -> Shell ()
-configure cfg = withBuildEnv $ do
+configure = withBuildEnv $ \cfg -> do
     cabal cfg ["configure"]
     hasteCabal cfg ["configure"]

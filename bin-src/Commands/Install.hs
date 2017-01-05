@@ -6,6 +6,6 @@ import Config
 import Environment
 
 install :: Config -> Shell ()
-install cfg = withBuildEnv $ do
+install = withBuildEnv $ \cfg -> do
     cabal cfg ("install" : extraArgs cfg)
     hasteCabal cfg ("install" : extraArgs cfg)

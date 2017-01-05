@@ -1,7 +1,7 @@
 module Config
   ( ToolSpec (..), Tool, Config (..)
   , defaultConfig, resolveTool, allTools
-  , runTool
+  , runTool, requireTools, requireCabal
   ) where
 import Control.Shell
 import Data.Either
@@ -26,7 +26,9 @@ type Tool = (String, FilePath)
 -- | Per-invocation configuration for the Haste.App build tool.
 data Config = Config
   { -- | All external tools available to the build tool.
-    tools     :: [Tool]
+    tools :: [Tool]
+    -- | Any tools that were requested but not found.
+  , missingTools :: [ToolSpec]
     -- | Any extra non-option arguments.
   , extraArgs :: [String]
   }
@@ -50,10 +52,33 @@ allTools =
 defaultConfig :: [String] -> Shell Config
 defaultConfig extras = withAppDirectory appName $ \appdir -> do
   ts <- mapM (resolveTool [appdir </> "bin"]) allTools
+  let (missing, present) = partitionEithers ts
   return $ Config
-    { tools     = rights ts
-    , extraArgs = extras
+    { tools        = present
+    , missingTools = missing
+    , extraArgs    = extras
     }
+
+-- | Perform the given action if all tools in the given list are present. Also
+--   filter out any tool that was not explicitly requested from the config's
+--   list of available tools.
+requireTools :: [String] -> (Config -> Shell a) -> Config -> Shell a
+requireTools req act cfg = do
+    case [t | ToolSpec t _ _ <- missingTools cfg, t `elem` req] of
+      []      -> act (cfg {tools = [t | t <- tools cfg, fst t `elem` req]})
+      missing -> fail $ missingToolsError missing
+  where
+    -- TODO: check which tools can be automatically installed and offer to
+    --       install them
+    missingToolsError ts = concat
+      [ "required external programs were not found:\n"
+      , unlines $ map ("  " ++) ts
+      , "please make sure that these tools are installed and present on your "
+      , "search path"
+      ]
+
+requireCabal :: (Config -> Shell a) -> Config -> Shell a
+requireCabal = requireTools ["haste-cabal", "cabal"]
 
 -- | Attempt to locate the given tool and return a @(name, binary)@ pair if
 --   found. If not, return the tool specification itself.
