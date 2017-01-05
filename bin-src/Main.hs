@@ -4,9 +4,10 @@ import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr)
 
 import Options
+import Commands
 
 main = do
-  result <- shell $ run [] cmdline
+  result <- shell $ run availableCommands cmdline
   case result of
     Left (Failure msg) -> hPutStrLn stderr msg >> exitFailure
     _                  -> return ()

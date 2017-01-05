@@ -11,6 +11,8 @@ import System.IO
 import System.IO.Unsafe
 import qualified Haste.App.Protocol as Proto (Endpoint (..), TLSConfig (..))
 import Haste.App.Config
+import Data.Version (Version (..), showVersion)
+import Paths_haste_app (version)
 
 -- | What should we do when we start?
 data RunMode
@@ -156,6 +158,10 @@ optspec eps =
     "List all files embedded in this executable. The app JavaScript file " ++
     "will be prefixed with an asterisk."
 
+  , Option "" ["haste-app-version"]
+    (NoArg (\c -> c {runMode = PrintAndQuit versionInfo})) $
+    "Print the Haste.App version this program was built against."
+
   , Option "?" ["help"]
     (NoArg (\c -> c {runMode = PrintAndQuit (help eps)})) $
     "Print this help message."
@@ -164,6 +170,10 @@ optspec eps =
     shorthost = if length eps == 1 then "h" else ""
     shortport = if length eps == 1 then "a" else ""
     shorttls  = if length eps == 1 then "t" else ""
+
+-- | Version info for @--haste-app-version@.
+versionInfo :: String
+versionInfo = "Haste.App, version " ++ showVersion version ++ "\n"
 
 helpHeader :: String
 helpHeader = concat

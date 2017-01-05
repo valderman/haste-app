@@ -18,7 +18,12 @@ executable haste-app
   main-is: Main.hs
   default-language: Haskell2010
   other-modules:
+    Commands,
+    Commands.Clean,
+    Commands.Build,
+    Commands.Init,
     Config,
+    Environment,
     Options
   build-depends:
     base       >= 4.8   && < 4.9,
@@ -36,7 +41,8 @@ library
     Haste.App.Protocol
     Haste.App.Remote,
     Haste.App.Routing,
-    Haste.App.Server
+    Haste.App.Server,
+    Paths_haste_app
   other-extensions:
     CPP,
     GeneralizedNewtypeDeriving,
