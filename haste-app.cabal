@@ -19,8 +19,9 @@ executable haste-app
   default-language: Haskell2010
   other-modules:
     Commands,
-    Commands.Clean,
     Commands.Build,
+    Commands.Clean,
+    Commands.Delete,
     Commands.Init,
     Config,
     Environment,

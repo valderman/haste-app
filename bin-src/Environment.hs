@@ -6,18 +6,14 @@ import Config
 data AppPart = Client | Server
   deriving (Show, Read, Eq)
 
--- | Relative path to the file determining which application part is active.
-activePartFile :: FilePath
-activePartFile = ".active"
-
 -- | Relative path to the scratch directory for each part.
 scratchDir :: AppPart -> FilePath
-scratchDir Client = ".client"
-scratchDir Server = ".server"
+scratchDir Client = scratchRoot </> "client"
+scratchDir Server = scratchRoot </> "server"
 
--- | Directory of the currently active sandbox.
-sandboxDir :: AppPart -> FilePath
-sandboxDir part = scratchDir part </> "cabal-sandbox"
+-- | Root scratch directory.
+scratchRoot :: FilePath
+scratchRoot = ".haste-app-env"
 
 -- | Name of the cabal sandbox configuration file.
 sandboxConfigFile :: FilePath

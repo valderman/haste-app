@@ -7,5 +7,9 @@ import Environment
 
 initialize :: Config -> Shell ()
 initialize cfg = do
-  cabal cfg ["sandbox", "init"]
-  hasteCabal cfg ["sandbox", "init"]
+  mkdir True (scratchDir Server)
+  mkdir True (scratchDir Client)
+  inDirectory (scratchDir Server) $ do
+    run "cabal" ["sandbox", "init"]
+  inDirectory (scratchDir Client) $ do
+    run "haste-cabal" ["sandbox", "init"]
