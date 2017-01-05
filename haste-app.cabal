@@ -21,6 +21,9 @@ flag no-library
   default: False
   description: Don't install the library, only the build tool.
 
+flag haste
+  default: False
+  description: Package is being installed for Haste.
 
 executable haste-app
   hs-source-dirs: src, bin-src
@@ -37,7 +40,7 @@ executable haste-app
     Config,
     Environment,
     Options
-  if impl(haste) || flag(no-build-tool)
+  if flag(haste) || flag(no-build-tool)
     buildable: False
   else
     build-depends:
@@ -82,7 +85,7 @@ library
       haste-lib    >=0.6 && <0.7,
       haste-prim   >=0.6 && <0.7,
       containers   >=0.5 && <0.6
-    if !impl(haste)
+    if !flag(haste)
       other-modules:
         Haste.App.Standalone.Config,
         Haste.App.Standalone.Embed,
