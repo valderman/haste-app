@@ -7,9 +7,13 @@ import Environment
 
 initialize :: Config -> Shell ()
 initialize = requireCabal $ \cfg -> do
-  mkdir True (scratchDir Server)
-  mkdir True (scratchDir Client)
-  inDirectory (scratchDir Server) $ do
-    run "cabal" ["sandbox", "init"]
-  inDirectory (scratchDir Client) $ do
-    run "haste-cabal" ["sandbox", "init"]
+  hbe <- hasBuildEnv
+  if hbe
+    then fail "build environment already exists"
+    else do
+      mkdir True (scratchDir Server)
+      mkdir True (scratchDir Client)
+      inDirectory (scratchDir Server) $ do
+        run "cabal" ["sandbox", "init"]
+      inDirectory (scratchDir Client) $ do
+        run "haste-cabal" ["sandbox", "init"]
