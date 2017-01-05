@@ -25,6 +25,10 @@ flag haste
   default: False
   description: Package is being installed for Haste.
 
+flag haste-app
+  default: False
+  description: Package is being installed by the Haste.App build tool.
+
 executable haste-app
   hs-source-dirs: src, bin-src
   main-is: Main.hs
@@ -40,7 +44,7 @@ executable haste-app
     Config,
     Environment,
     Options
-  if flag(haste) || flag(no-build-tool)
+  if flag(haste) || flag(haste-app) || flag(no-build-tool)
     buildable: False
   else
     build-depends:
