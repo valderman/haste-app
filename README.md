@@ -75,7 +75,7 @@ TODO
 * Add long-polling simulation of server-triggered events?
 * HTTPS support for files served using Haste.App.Standalone.
 * Handle disconnects between non-server nodes.
-* Add commands to build tool: configure, setup.
+* Add commands to build tool: setup.
 * Give build tool capability to download and install Haste, GHC and Cabal
   locally when missing.
 * Add build tool config file, to specify which executables are standalone and
