@@ -1,10 +1,13 @@
 module Config
   ( ToolSpec (..), Tool, Config (..)
   , defaultConfig, resolveTool, allTools
-  , runTool, requireTools, requireCabal
+  , runTool, requireTools, standardReqs
   ) where
 import Control.Shell
 import Data.Either
+import Data.List (isPrefixOf)
+import Data.Version
+import Text.ParserCombinators.ReadP
 
 -- | Name of the Haste.App build tool.
 appName :: String
@@ -38,15 +41,27 @@ allTools :: [ToolSpec]
 allTools =
   [ ToolSpec
       { toolName    = "haste-cabal"
-      , toolPath    = guessCommand "haste-cabal"
+      , toolPath    = guessCommand "haste-cabal" anyVersion
       , toolInstall = Nothing
       }
   , ToolSpec
       { toolName    = "cabal"
-      , toolPath    = guessCommand "cabal"
+      , toolPath    = guessCommand "cabal" anyVersion
+      , toolInstall = Nothing
+      }
+  , ToolSpec
+      { toolName    = "GHC 7.10"
+      , toolPath    = guessCommand "ghc" (versionIs $ makeVersion [7,10])
+      , toolInstall = Nothing
+      }
+  , ToolSpec
+      { toolName    = "Haste 0.6+"
+      , toolPath    = guessCommand "hastec" (versionAtLeast hasteVer)
       , toolInstall = Nothing
       }
   ]
+  where
+    hasteVer = makeVersion [0,6]
 
 -- | Build the default configuration.
 defaultConfig :: [String] -> Shell Config
@@ -77,8 +92,9 @@ requireTools req act cfg = do
       , "search path"
       ]
 
-requireCabal :: (Config -> Shell a) -> Config -> Shell a
-requireCabal = requireTools ["haste-cabal", "cabal"]
+-- | Require Haste, GHC, haste-cabal and cabal to be present.
+standardReqs :: (Config -> Shell a) -> Config -> Shell a
+standardReqs = requireTools ["haste-cabal", "cabal", "GHC 7.10", "Haste 0.6+"]
 
 -- | Attempt to locate the given tool and return a @(name, binary)@ pair if
 --   found. If not, return the tool specification itself.
@@ -99,10 +115,53 @@ runTool name cfg
 -- | Try to guess the path of the given command. The first working binary in
 --   the given list of search paths is preferred. Binaries are executed without
 --   any argument to determine whether they are "working" or not.
+--   If the binary can be executed, the given predicate is then executed over
+--   the determined path for further verification.
 --   If no search path contains the binary, the default one on the system path
 --   is used.
-guessCommand :: String -> [FilePath] -> Shell (Maybe FilePath)
-guessCommand cmd paths = go $ (map (</> cmd) paths) ++ [cmd]
+guessCommand :: String
+             -> (FilePath -> Shell Bool)
+             -> [FilePath]
+             -> Shell (Maybe FilePath)
+guessCommand cmd isok paths = go $ (map (</> cmd) paths) ++ [cmd]
   where
-    go (p:ps) = (capture2 (run p []) >> pure (Just p)) `orElse` go ps
-    go _      = pure Nothing
+    go (p:ps) =
+      (capture2 (run p []) >> guard (isok p) >> pure (Just p)) `orElse` go ps
+    go _ =
+      pure Nothing
+
+-- | Flags that will produce a numeric version when passed to a tool.
+versionFlags :: [String]
+versionFlags = ["--version", "--numeric-version"]
+
+-- | Check that the program's version is an exact match as far as specified.
+--   For instance, GHC 7.10.3 will match "7.10" but not "7.10.4".
+versionIs :: Version -> FilePath -> Shell Bool
+versionIs (Version ver _) =
+  checkVer ((ver `isPrefixOf`) . versionBranch) versionFlags
+
+-- | Check that the program's version is an exact match as far as specified.
+--   For instance, GHC 7.10.3 will match "7.10.4" but not "7.10.4".
+versionAtLeast :: Version -> FilePath -> Shell Bool
+versionAtLeast ver = checkVer (>= ver) versionFlags
+
+-- | Don't check the version.
+anyVersion :: FilePath -> Shell Bool
+anyVersion = const $ pure True
+
+-- | Check whether the given predicate matches the output produced by the given
+--   program when invoked with any of the given flags.
+checkVer :: (Version -> Bool) -> [String] -> FilePath -> Shell Bool
+checkVer p (flag:flags) cmd = do
+  mver <- readVer <$> capture (run cmd [flag])
+  case mver of
+    Just ver | p ver -> return True
+    _                -> checkVer p flags cmd
+checkVer _ _ _ = do
+  return False
+
+readVer :: String -> Maybe Version
+readVer s =
+  case readP_to_S parseVersion s of
+    [] -> Nothing
+    vs -> Just $ fst $ last vs

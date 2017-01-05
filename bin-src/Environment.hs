@@ -23,7 +23,7 @@ hasBuildEnv = isDirectory scratchRoot
 --   otherwise complain and exit. Also ensures that @cabal@ and @haste-cabal@
 --   are available.
 withBuildEnv :: (Config -> Shell a) -> Config -> Shell a
-withBuildEnv act = requireCabal $ \cfg -> do
+withBuildEnv act = standardReqs $ \cfg -> do
   hbe <- hasBuildEnv
   if hbe
     then act cfg

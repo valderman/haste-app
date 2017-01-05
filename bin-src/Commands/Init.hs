@@ -6,7 +6,7 @@ import Config
 import Environment
 
 initialize :: Config -> Shell ()
-initialize = requireCabal $ \cfg -> do
+initialize = standardReqs $ \cfg -> do
   hbe <- hasBuildEnv
   if hbe
     then fail "build environment already exists"
