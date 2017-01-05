@@ -83,8 +83,6 @@ TODO
 * Add flags to build tool for passing flags to cabal, printing help, changing
   paths, etc.
 * Have the build tool check that all needed external programs are present.
-* Have the build tool complain when running in a directory that hasn't een
-  prepared using `haste-app init`.
 * Add short tutorial for build tool.
 * Have the build tool use data-embed directly instead of using binary's `-e`
   flag, to enable Windows support.

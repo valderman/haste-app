@@ -15,6 +15,19 @@ scratchDir Server = scratchRoot </> "server"
 scratchRoot :: FilePath
 scratchRoot = ".haste-app-env"
 
+-- | Does the current working directory have a build environment?
+hasBuildEnv :: Shell Bool
+hasBuildEnv = isDirectory scratchRoot
+
+-- | Perform the given computation if we're in a Haste.App build environment,
+--   otherwise complain and exit.
+withBuildEnv :: Shell a -> Shell a
+withBuildEnv act = do
+  hbe <- hasBuildEnv
+  if hbe
+    then act
+    else fail "not a Haste.App build environment; use `haste-app init' to create one first"
+
 -- | Name of the cabal sandbox configuration file.
 sandboxConfigFile :: FilePath
 sandboxConfigFile = "cabal.sandbox.config"

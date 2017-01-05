@@ -6,7 +6,7 @@ import Config
 import Environment
 
 build :: Config -> Shell ()
-build cfg = do
+build cfg = withBuildEnv $ do
     buildServer
     buildClient
 
