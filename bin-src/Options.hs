@@ -16,7 +16,7 @@ run cmds args = do
       ((c:_), [])
         | Just action <- lookup c cmds -> action (mkConfig defConfig)
         | otherwise                    -> fail $ "unrecognized command: " ++ c
-      ([], _)                          -> fail "no command given"
+      ([], _)                          -> fail "no command given; try `haste-app help'"
       (_, _)                           -> fail $ init $ concat errors
   where
     (cfgs, nonopts, errors) = getOpt Permute options args

@@ -7,6 +7,7 @@ import Commands.Clean
 import Commands.Configure
 import Commands.Build
 import Commands.Delete
+import Commands.Help
 import Commands.Init
 import Commands.Install
 
@@ -17,6 +18,7 @@ availableCommands =
   , ("clean",     clean)
   , ("configure", configure)
   , ("delete",    delete)
+  , ("help",      help)
   , ("init",      initialize)
   , ("install",   install)
   ]

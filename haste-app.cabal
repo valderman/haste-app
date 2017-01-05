@@ -39,11 +39,13 @@ executable haste-app
     Commands.Clean,
     Commands.Configure,
     Commands.Delete,
+    Commands.Help,
     Commands.Init,
     Commands.Install,
     Config,
     Environment,
-    Options
+    Options,
+    Paths_haste_app
   if flag(haste) || flag(haste-app) || flag(no-build-tool)
     buildable: False
   else
