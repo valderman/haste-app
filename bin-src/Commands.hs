@@ -16,7 +16,7 @@ availableCommands :: [(String, Config -> Shell ())]
 availableCommands =
   [ ("build",     build)
   , ("clean",     clean)
-  , ("configure", configure)
+  , ("configure", void . configure)
   , ("delete",    delete)
   , ("help",      help)
   , ("init",      initialize)

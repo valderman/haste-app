@@ -34,6 +34,7 @@ executable haste-app
   main-is: Main.hs
   default-language: Haskell2010
   other-modules:
+    AppConfig,
     Commands,
     Commands.Build,
     Commands.Clean,
@@ -50,7 +51,9 @@ executable haste-app
     buildable: False
   else
     build-depends:
+      aeson      >= 1.0   && < 1.2,
       base       >= 4.8   && < 4.9,
+      bytestring >= 0.9   && < 0.11,
       data-embed >= 0.1   && < 0.2,
       shellmate  >= 0.3.4 && < 0.4
 

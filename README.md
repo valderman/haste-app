@@ -78,8 +78,6 @@ TODO
 * Add commands to build tool: setup.
 * Give build tool capability to download and install Haste, GHC and Cabal
   locally when missing.
-* Add build tool config file, to specify which executables are standalone and
-  which aren't, as well as what files to embed into them.
 * Add flags to build tool for passing flags to cabal, printing help, changing
   paths, etc.
 * Add short tutorial for build tool.

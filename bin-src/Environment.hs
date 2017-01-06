@@ -62,3 +62,7 @@ buildDir part = "--builddir=" ++ (scratchDir part </> "dist")
 -- | Relative path to directory in which to place build artifacts.
 artifactDir :: FilePath
 artifactDir = "_app"
+
+-- | Name of application configuration JSON file.
+appConfigFile :: FilePath
+appConfigFile = "haste-app.json"
