@@ -6,9 +6,10 @@ import System.Info (os)
 
 import AppConfig hiding (ExeType (..))
 import qualified AppConfig as App (ExeType (..))
+import Commands.Configure
 import Config
 import Environment
-import Commands.Configure
+import Haste.App.Standalone.Embed
 
 type TargetName = String
 
@@ -125,9 +126,9 @@ embedAndCopy cli srv embedDir embedFiles = do
     echo "================================"
     echo ""
     copyArtifact Server srv
-    run srvFile $ ["-s1", "-e", "." </> cliFile] ++ extras
+    liftIO $ embedFilesInto 1 srvFile cliFile extras
   where
-    extras  = map (embedDir </>) embedFiles
+    extras  = [embedDir </> f | f <- embedFiles]
     cliFile = buildArtifactPath Client cli
     srvFile = artifactDir </> buildArtifactName Server srv
 

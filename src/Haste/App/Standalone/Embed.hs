@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | Creating and reading file embeddings.
 module Haste.App.Standalone.Embed
-  ( embedFiles , findEmbeddedFile, embeddedFiles
+  ( embedFiles, embedFilesInto, findEmbeddedFile, embeddedFiles
   , mkJSMain, jsMainExists , jsMainFileName
   ) where
 import Control.Monad
@@ -30,24 +30,28 @@ embeddedFiles =
 -- | Embed the given JS and auxiliary files into this executable.
 embedFiles :: Config -> FilePath -> [FilePath] -> IO ()
 embedFiles cfg js aux = do
-    when (jsMainExists && not (forceEmbed cfg)) $ do
-      hPutStrLn stderr $ "This executable already contains a Haste.App " ++
-                         "client JavaScript program; aborting.\n" ++
-                         "To embed a new client program and auxiliary " ++
-                         "files, use the `--force' option."
-      exitFailure
-    self <- getExecutablePath
-    withTempFile (takeDirectory self) "" $ \tmp h -> do
+  when (jsMainExists && not (forceEmbed cfg)) $ do
+    hPutStrLn stderr $ "This executable already contains a Haste.App " ++
+                       "client JavaScript program; aborting.\n" ++
+                       "To embed a new client program and auxiliary " ++
+                       "files, use the `--force' option."
+    exitFailure
+  self <- getExecutablePath
+  embedFilesInto (maybe 0 id $ stripDirs cfg) self js aux
+
+-- | Embed JS files into the given binary.
+embedFilesInto :: Int -> FilePath -> FilePath -> [FilePath] -> IO ()
+embedFilesInto strip bin js aux = do
+    withTempFile (takeDirectory bin) "" $ \tmp h -> do
       hClose h
-      BS.readFile self >>= BS.writeFile tmp
+      BS.readFile bin >>= BS.writeFile tmp
       replaceBundle tmp $
         [ FileData jsFileNameFileName (BS.toStrict $ BS.pack jsFileName)
         , FilePath strip js
         ] ++ map (FilePath strip) aux
-      copyPermissions self tmp
-      renameFile tmp self
+      copyPermissions bin tmp
+      renameFile tmp bin
   where
-    strip = maybe 0 id (stripDirs cfg)
     jsFileName = stripLeading strip js
     stripLeading 0 f = f
     stripLeading n f = stripLeading (n-1) (drop 1 (dropWhile (/= '/') f))

@@ -81,8 +81,6 @@ TODO
 * Add flags to build tool for passing flags to cabal, printing help, changing
   paths, etc.
 * Add short tutorial for build tool.
-* Have the build tool use data-embed directly instead of using binary's `-e`
-  flag, to enable Windows support.
 * Let build tool config file contain information about all endpoints, so they
   can all be built at the same time.
 * Have build tool pass a cabal flag indicating the name of the endpoint
