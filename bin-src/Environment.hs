@@ -1,6 +1,7 @@
 -- | Utilities for working with Haste.App's multiple environments.
 module Environment where
 import Control.Shell
+
 import Config
 
 type TargetName = String
@@ -11,6 +12,18 @@ noTarget = ""
 -- | Write which log file?
 data Stage = Setup | Install | Configure | Build TargetName
   deriving (Show, Eq)
+
+-- | Name of the given stage, for the given part. For use in file names, etc.
+stagePartName :: Stage -> AppPart -> String
+stagePartName s p = stageName s ++ "-" ++ appPartName p
+
+-- | Names for stages, for use in file names and similar.
+stageName :: Stage -> String
+stageName Setup      = "setup"
+stageName Install    = "install"
+stageName Configure  = "configure"
+stageName (Build "") = "build"
+stageName (Build t)  = "build-" ++ t
 
 data AppPart = Client | Server
   deriving (Show, Read, Eq)
@@ -86,11 +99,7 @@ logFilePath s p = logDir </> logFileName s p
 
 -- | File name of the given log file, without leading path.
 logFileName :: Stage -> AppPart -> FilePath
-logFileName Setup p      = ("setup_" ++ appPartName p) <.> "log"
-logFileName Install p    = "install" <.> "log"
-logFileName Configure p  = ("configure_" ++ appPartName p) <.> "log"
-logFileName (Build "") p = ("build_" ++ appPartName p) <.> "log"
-logFileName (Build t) p  = concat ["build_", t, "_", appPartName p] <.> "log"
+logFileName s p = stagePartName s p <.> "log"
 
 -- | Directory for old log files.
 oldLogDir :: FilePath
@@ -116,8 +125,13 @@ withLogging st p act = do
   (out, err, reason) <- capture3 act
   writeLogFile st p out err
   case reason of
-    Failure err -> fail err
+    Failure msg -> failStage msg err
     _           -> return ()
+  where
+    failStage err msg = fail $ init $ concat
+      [ "stage ", stagePartName st p, " failed (", err, ")\n\n"
+      , "relevant cabal output:\n"
+      ] ++ unlines (map ("  " ++) (lines msg))
 
 -- | Write the specified log to file.
 writeLogFile :: Stage -> AppPart -> String -> String -> Shell ()
