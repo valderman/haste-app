@@ -37,6 +37,8 @@ mainHelp = echo $ init $ unlines
   , "  init      - create a new Haste.App build environment."
   , "  install   - install one or more packages into the build environment, for both"
   , "              the client and the server parts."
+  , "  setup     - install all client and server dependencies, as well as any"
+  , "              programs that can be automatically installed."
   ]
 
 appConfigHelp :: Shell ()

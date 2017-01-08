@@ -10,6 +10,7 @@ import Commands.Delete
 import Commands.Help
 import Commands.Init
 import Commands.Install
+import Commands.Setup
 
 -- | All available Haste.App commands.
 availableCommands :: [(String, Config -> Shell ())]
@@ -21,4 +22,5 @@ availableCommands =
   , ("help",      help)
   , ("init",      initialize)
   , ("install",   install)
+  , ("setup",     setup)
   ]

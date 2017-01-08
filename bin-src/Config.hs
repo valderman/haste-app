@@ -55,13 +55,13 @@ allTools =
       , toolInstall = Nothing
       }
   , ToolSpec
-      { toolName    = "Haste 0.6+"
+      { toolName    = "Haste " ++ showVersion hasteVer ++ "+"
       , toolPath    = guessCommand "hastec" (versionAtLeast hasteVer)
       , toolInstall = Nothing
       }
   ]
   where
-    hasteVer = makeVersion [0,6]
+    hasteVer = makeVersion [0,5,5,1]
 
 -- | Build the default configuration.
 defaultConfig :: [String] -> Shell Config

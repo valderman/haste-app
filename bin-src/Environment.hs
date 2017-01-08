@@ -2,7 +2,7 @@
 module Environment
   ( TargetName, AppPart (..), OS (..)
   , os, hasBuildEnv, withBuildEnv
-  , scratchRoot, scratchDir, buildDir, artifactDir
+  , scratchRoot, scratchDir, buildDir, artifactDir, packagesDir
   , appConfigFile, appPartName, noTarget
   , cabal, hasteCabal, withCabalFlags
   ) where
@@ -41,6 +41,10 @@ scratchDir p = scratchRoot </> appPartName p
 -- | Root scratch directory.
 scratchRoot :: FilePath
 scratchRoot = ".haste-app-env"
+
+-- | Directory in which to store local copies of packages.
+packagesDir :: FilePath
+packagesDir = scratchRoot </> "packages"
 
 -- | Does the current working directory have a build environment?
 hasBuildEnv :: Shell Bool
