@@ -98,8 +98,11 @@ buildWithoutAppConfig cfg = do
 -- | Copy the given artifact into the build artifact directory.
 copyArtifact :: AppPart -> TargetName -> Shell ()
 copyArtifact part art = cp from to
-  where from = buildArtifactPath part art
-        to = artifactDir </> takeFileName from
+  where
+    from = buildArtifactPath part art
+    to = case part of
+           Server -> artifactDir </> takeFileName from
+           Client -> replaceExtension (artifactDir </> takeFileName from) ".js"
 
 -- | Copy all given artifacts into the build artifact directory.
 copyAllArtifacts :: [TargetName] -> [TargetName] -> Shell ()
