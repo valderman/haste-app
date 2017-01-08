@@ -85,5 +85,3 @@ TODO
   can all be built at the same time.
 * Have build tool pass a cabal flag indicating the name of the endpoint
   currently being built.
-* Write cabal output to log files instead of terminal.
-* Make info prints cleaner and more consistent.
