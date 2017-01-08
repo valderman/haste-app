@@ -1,6 +1,9 @@
 {-# LANGUAGE OverloadedStrings, RecordWildCards #-}
 -- | Configuration for the application being built.
-module AppConfig where
+module AppConfig
+  ( ExeType (..), AppConfig (..), Target (..)
+  , readAppConfig, hasServerExes, hasClientExes
+  ) where
 import Control.Applicative
 import Control.Shell
 import Data.Aeson
@@ -11,12 +14,6 @@ import qualified Data.Text as Text
 import qualified Data.Vector as Vec
 
 import Environment hiding (AppPart (..))
-
--- | Represents the status of the application config for the given project.
-data AppConfStatus
-  = AppConfOK AppConfig
-  | AppConfMissing
-  | AppConfBroken String
 
 -- | Build target type.
 data ExeType
@@ -151,12 +148,14 @@ instance ToJSON AppConfig where
     ]
 
 -- | Read the application config file, if available.
-readAppConfig :: Shell AppConfStatus
+--   Fails if the config could not be parsed, and returns @Nothing@ if there
+--   was no config file.
+readAppConfig :: Shell (Maybe AppConfig)
 readAppConfig = do
   eres <- try $ liftIO $ BS.readFile appConfigFile
   case eres of
-    Right x -> return $ either AppConfBroken AppConfOK $ eitherDecode' x
-    _       -> return AppConfMissing
+    Right x -> either failAppConfBroken (pure . Just) $ eitherDecode' x
+    _       -> return Nothing
 
 -- | Does the application contain any executables that need to be built for the
 --   client?
@@ -167,3 +166,10 @@ hasClientExes = any (\t -> exeType t /= Server) . targets
 --   server?
 hasServerExes :: AppConfig -> Bool
 hasServerExes = any (\t -> exeType t /= Client) . targets
+
+-- | Fail with the given parse error due to a broken application config.
+failAppConfBroken :: String -> Shell a
+failAppConfBroken err = fail $ concat
+  [ "unable to parse ", appConfigFile, ": "
+  , err
+  ]

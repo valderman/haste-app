@@ -1,5 +1,11 @@
 -- | Utilities for working with Haste.App's multiple environments.
-module Environment where
+module Environment
+  ( TargetName, AppPart (..)
+  , hasBuildEnv, withBuildEnv
+  , scratchRoot, scratchDir, buildDir, artifactDir
+  , appConfigFile, appPartName, noTarget
+  , cabal, hasteCabal, withCabalFlags
+  ) where
 import Control.Shell
 
 import Config
@@ -76,10 +82,3 @@ artifactDir = "_app"
 -- | Name of application configuration JSON file.
 appConfigFile :: FilePath
 appConfigFile = "haste-app.json"
-
--- | Fail with the given parse error due to a broken application config.
-failAppConfBroken :: String -> Shell a
-failAppConfBroken err = fail $ concat
-  [ "unable to parse ", appConfigFile, ": "
-  , err
-  ]

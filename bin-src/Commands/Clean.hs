@@ -8,6 +8,6 @@ import Environment
 clean :: Config -> Shell ()
 clean = withBuildEnv $ \cfg -> do
   echo "cleaning..."
-  capture $ cabal cfg ["clean", buildDir Server]
-  capture $ hasteCabal cfg ["clean", buildDir Client]
+  capture2 $ cabal cfg ["clean", buildDir Server]
+  capture2 $ hasteCabal cfg ["clean", buildDir Client]
   return ()
