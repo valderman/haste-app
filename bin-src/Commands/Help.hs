@@ -77,6 +77,7 @@ appConfigHelp = echo $ init $ unlines
   , ""
   , "  embed-dir   - path to directory in which extra files to be embedded into"
   , "                standalone executables reside. Can be overriden per target."
+  , "                Must be relative to project root directory."
   , "                Default: `\".\"'"
   , ""
   , "  embed-files - extra files to embed into standalone executable for all targets."
