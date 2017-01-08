@@ -10,6 +10,7 @@ import Commands.Configure
 import Config
 import Environment
 import Haste.App.Standalone.Embed
+import Logging
 
 build :: Config -> Shell ()
 build = withBuildEnv $ \cfg -> do
@@ -27,11 +28,6 @@ build = withBuildEnv $ \cfg -> do
 -- | Build an application from a config file.
 buildApp :: Config -> AppConfig -> Shell ()
 buildApp cfg AppConfig{..} = do
-    echo ""
-    echo "========================================"
-    echo "= Building targets from haste-app.json ="
-    echo "========================================"
-    echo ""
     mapM_ buildTarget targets
   where
     buildTarget Target{..} = do
@@ -71,27 +67,12 @@ buildWithoutAppConfig cfg = do
           _                    -> copyAllArtifacts client_bas server_bas
       _ -> do
         copyAllArtifacts client_bas server_bas
-
-    reportArtifacts $ concat
-      [ map (buildArtifactName Client) client_bas
-      , map (buildArtifactName Server) server_bas
-      ]
   where
     buildServer cfg = do
-      echo ""
-      echo "======================"
-      echo "= Building server(s) ="
-      echo "======================"
-      echo ""
       withLogging (Build noTarget) Server $ do
         cabal cfg ["build", buildDir Server]
 
     buildClient cfg = do
-      echo ""
-      echo "======================"
-      echo "=  Building  client  ="
-      echo "======================"
-      echo ""
       withLogging (Build noTarget) Client $ do
         hasteCabal cfg ["build", buildDir Client]
 
@@ -110,25 +91,11 @@ copyAllArtifacts client_bas server_bas = do
   mapM_ (copyArtifact Client) client_bas
   mapM_ (copyArtifact Server) server_bas
 
-reportArtifacts :: [FilePath] -> Shell ()
-reportArtifacts arts = do
-  echo ""
-  echo "============="
-  echo "=   Done!   ="
-  echo "============="
-  echo ""
-  echo "The following artifacts were built:"
-  mapM_ (echo . ("  " ++)) arts
-
 -- | Copy server binary to artifact directory, then embed client program and any
 --   extra files.
 embedAndCopy :: TargetName -> TargetName -> FilePath -> [FilePath] -> Shell ()
 embedAndCopy cli srv embedDir embedFiles = do
-    echo ""
-    echo "================================"
-    echo "= Embedding client into server ="
-    echo "================================"
-    echo ""
+    echo "embedding client and extra files..."
     copyArtifact Server srv
     withCustomTempFile TextMode "." $ \js h -> do
       -- Use a temp file name to avoid putting build paths into the artifact.

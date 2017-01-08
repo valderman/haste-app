@@ -46,6 +46,7 @@ executable haste-app
     Config,
     Environment,
     Haste.App.Standalone.Embed,
+    Logging,
     Options,
     Paths_haste_app
   if flag(haste) || flag(haste-app) || flag(no-build-tool)

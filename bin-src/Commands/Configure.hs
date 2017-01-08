@@ -5,6 +5,7 @@ import Control.Shell
 import AppConfig hiding (ExeType (..))
 import Config
 import Environment
+import Logging
 
 configure :: Config -> Shell AppConfStatus
 configure = withBuildEnv $ \cfg -> do
