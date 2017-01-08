@@ -1,12 +1,13 @@
 -- | Utilities for working with Haste.App's multiple environments.
 module Environment
-  ( TargetName, AppPart (..)
-  , hasBuildEnv, withBuildEnv
+  ( TargetName, AppPart (..), OS (..)
+  , os, hasBuildEnv, withBuildEnv
   , scratchRoot, scratchDir, buildDir, artifactDir
   , appConfigFile, appPartName, noTarget
   , cabal, hasteCabal, withCabalFlags
   ) where
 import Control.Shell
+import qualified System.Info (os)
 
 import Config
 
@@ -16,7 +17,17 @@ noTarget :: TargetName
 noTarget = ""
 
 data AppPart = Client | Server
-  deriving (Show, Read, Eq)
+  deriving (Show, Eq, Ord)
+
+data OS = Linux | Windows | MacOS
+  deriving (Show, Eq, Ord)
+
+-- | What OS are we running on?
+os :: OS
+os | System.Info.os == "mingw32" = Windows
+   | System.Info.os == "linux"   = Linux
+   | System.Info.os == "darwin"  = MacOS
+   | otherwise                   = error "unsupported operating system"
 
 -- | Name of the given AppPart, for use in file names and similar.
 appPartName :: AppPart -> String

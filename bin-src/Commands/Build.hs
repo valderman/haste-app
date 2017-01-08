@@ -2,7 +2,6 @@
 -- | Building all parts of a Haste.App application.
 module Commands.Build (build) where
 import Control.Shell
-import System.Info (os)
 
 import AppConfig hiding (ExeType (..))
 import qualified AppConfig as App (ExeType (..))
@@ -124,8 +123,8 @@ buildArtifactPath :: AppPart -> TargetName -> FilePath
 buildArtifactPath part name =
     scratchDir part </> "dist" </> "build" </> name </> exe
   where
-    exe | os == "mingw32" = name <.> "exe"
-        | otherwise       = name
+    exe | os == Windows = name <.> "exe"
+        | otherwise     = name
 
 -- | Get the file name of the build artifact with the given name.
 buildArtifactName :: AppPart -> TargetName -> FilePath
