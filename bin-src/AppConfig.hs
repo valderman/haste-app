@@ -4,10 +4,19 @@ module AppConfig where
 import Control.Applicative
 import Control.Shell
 import Data.Aeson
-import Data.Aeson.Types (typeMismatch)
+import Data.Aeson.Types (typeMismatch, Parser)
 import qualified Data.ByteString.Lazy as BS
+import Data.Either
+import qualified Data.Text as Text
+import qualified Data.Vector as Vec
 
 import Environment hiding (AppPart (..))
+
+-- | Represents the status of the application config for the given project.
+data AppConfStatus
+  = AppConfOK AppConfig
+  | AppConfMissing
+  | AppConfBroken String
 
 -- | Build target type.
 data ExeType
@@ -21,6 +30,15 @@ data ExeType
 data AppConfig = AppConfig
   { -- | All application build targets.
     targets :: [Target]
+    -- | Use this executable type for targets where none is specified.
+    --   Default: @Both@
+  , defaultExeType :: ExeType
+    -- | Use this embed directory for targets where none is specified.
+    --   Default: @"."@
+  , defaultEmbedDir :: FilePath
+    -- | Embed these files for targets where none are specified.
+    --   Default: @[]@
+  , defaultEmbedFiles :: [FilePath]
   } deriving Show
 
 data Target = Target
@@ -29,25 +47,45 @@ data Target = Target
     exeName :: String
     -- | What type of executable should be built? Should be @Standalone@ if
     --   "Haste.App.Standalone" or "Haste.App.Simple" is used.
-    --   Default: @Both@
+    --   Default: 'defaultExeType'
   , exeType :: ExeType
     -- | In which directory do extra files to embed into a standalone executable
     --   reside? Must be relative to project root.
     --   Ignored if 'exeType' is not @Standalone@.
-    --   Default: @"."@
+    --   Default: 'defaultEmbedDir'
   , embedDir :: FilePath
     -- | Names of all extra files and directories that should be embedded into a
     --   standalone executable. These files and directories must reside in
     --   'embedDir'.  Ignored if 'exeType' is @Standalone@.
-    --   Default: []
+    --   Default: 'defaultEmbedFiles'
   , embedFiles :: [FilePath]
   } deriving Show
+
+-- | The default application configuration, without targets.
+defaultAppConfig :: AppConfig
+defaultAppConfig = AppConfig
+  { targets = []
+  , defaultExeType = Both
+  , defaultEmbedDir = "."
+  , defaultEmbedFiles = []
+  }
+
+-- | Target using the defaults from the application configuration for
+--   everything except its name.
+defaultTarget :: AppConfig -> Target
+defaultTarget AppConfig{..} = Target
+  { exeName = ""
+  , exeType = defaultExeType
+  , embedDir = defaultEmbedDir
+  , embedFiles = defaultEmbedFiles
+  }
 
 instance FromJSON ExeType where
   parseJSON (String "client")     = pure Client
   parseJSON (String "server")     = pure Server
   parseJSON (String "both")       = pure Both
   parseJSON (String "standalone") = pure Standalone
+  parseJSON x                     = typeMismatch "ExeType" x
 
 instance ToJSON ExeType where
   toJSON Client     = String "client"
@@ -55,13 +93,23 @@ instance ToJSON ExeType where
   toJSON Both       = String "both"
   toJSON Standalone = String "standalone"
 
-instance FromJSON Target where
-  parseJSON (Object obj) =
+-- | Parse a target, filling in any missing fields with the defaults from the
+--   given application config.
+parseTarget :: AppConfig -> Value -> Parser Target
+parseTarget AppConfig{..} (Object obj) =
     Target <$> obj .:  "name"
-           <*> obj .:? "type"        .!= Both
-           <*> obj .:? "embed-dir"   .!= "."
-           <*> obj .:? "embed-files" .!= []
-  parseJSON x = typeMismatch "Target" x
+           <*> obj .:? "type"        .!= defaultExeType
+           <*> obj .:? "embed-dir"   .!= defaultEmbedDir
+           <*> obj .:? "embed-files" .!= defaultEmbedFiles
+parseTarget conf (String name) =
+  return $ (defaultTarget conf) {exeName = Text.unpack name}
+parseTarget _ x =
+  typeMismatch "Target" x
+
+-- | Parse a list of targets.
+parseTargets :: AppConfig -> Value -> Parser [Target]
+parseTargets conf (Array ts) = mapM (parseTarget conf) $ Vec.toList ts
+parseTargets _ x             = typeMismatch "[Target]" x
 
 instance ToJSON Target where
   toJSON Target{..} = object
@@ -72,22 +120,43 @@ instance ToJSON Target where
     ]
 
 instance FromJSON AppConfig where
-  parseJSON (Object obj)  = AppConfig <$> obj .: "targets"
-  parseJSON arr@(Array _) = AppConfig <$> parseJSON arr
+  parseJSON (Object obj)  = do
+    cfg <-  AppConfig <$> pure []
+                      <*> obj .:? "type"        .!= Both
+                      <*> obj .:? "embed-dir"   .!= "."
+                      <*> obj .:? "embed-files" .!= []
+    mname <- obj .:? "name"
+    mtarr <- obj .:? "targets"
+    case (mname, mtarr) of
+      (Just name, Nothing) -> do
+        return $ cfg {targets = [(defaultTarget cfg) {exeName = name}]}
+      (Nothing, Just tarr) -> do
+        ts <- parseTargets cfg tarr
+        return $ cfg {targets = ts}
+      (Nothing, Nothing) -> do
+        fail "app config must have either `targets' or `name' on top level"
+      _ -> do
+        fail "app config can't have both `targets' and `name' on top level"
+  parseJSON arr@(Array _) = do
+    ts <- parseTargets defaultAppConfig arr
+    return $ defaultAppConfig {targets = ts}
   parseJSON x = typeMismatch "AppConfig" x
 
 instance ToJSON AppConfig where
   toJSON AppConfig{..} = object
-    [ "targets" .= toJSON targets
+    [ "targets"     .=  targets
+    , "type"        .= defaultExeType
+    , "embed-dir"   .= defaultEmbedDir
+    , "embed-files" .= defaultEmbedFiles
     ]
 
 -- | Read the application config file, if available.
-readAppConfig :: Shell (Maybe AppConfig)
+readAppConfig :: Shell AppConfStatus
 readAppConfig = do
   eres <- try $ liftIO $ BS.readFile appConfigFile
   case eres of
-    Right x -> return $ decode' x
-    _       -> return Nothing
+    Right x -> return $ either AppConfBroken AppConfOK $ eitherDecode' x
+    _       -> return AppConfMissing
 
 -- | Does the application contain any executables that need to be built for the
 --   client?

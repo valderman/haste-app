@@ -22,8 +22,9 @@ build = withBuildEnv $ \cfg -> do
     -- Configure and build
     mapp <- configure cfg
     case mapp of
-      Just app -> buildApp cfg app
-      _        -> buildWithoutAppConfig cfg
+      AppConfOK app   -> buildApp cfg app
+      AppConfMissing  -> buildWithoutAppConfig cfg
+      AppConfBroken e -> failAppConfBroken e
 
 -- | Build an application from a config file.
 buildApp :: Config -> AppConfig -> Shell ()

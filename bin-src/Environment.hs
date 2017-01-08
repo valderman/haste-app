@@ -66,3 +66,10 @@ artifactDir = "_app"
 -- | Name of application configuration JSON file.
 appConfigFile :: FilePath
 appConfigFile = "haste-app.json"
+
+-- | Fail with the given parse error due to a broken application config.
+failAppConfBroken :: String -> Shell a
+failAppConfBroken err = fail $ concat
+  [ "unable to parse ", appConfigFile, ": "
+  , err
+  ]

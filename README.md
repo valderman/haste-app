@@ -85,7 +85,5 @@ TODO
   can all be built at the same time.
 * Have build tool pass a cabal flag indicating the name of the endpoint
   currently being built.
-* Simple form config file: allow default type, embed directory and embed files
-  to be set on top level, and targets to be specified as just a list of names.
 * Write cabal output to log files instead of terminal.
 * Make info prints cleaner and more consistent.

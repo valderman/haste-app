@@ -6,11 +6,13 @@ import AppConfig
 import Config
 import Environment
 
-configure :: Config -> Shell (Maybe AppConfig)
+configure :: Config -> Shell AppConfStatus
 configure = withBuildEnv $ \cfg -> do
-  mapp <- readAppConfig
-  when (maybe True hasServerExes mapp) $ do
-    cabal cfg $ withCabalFlags ["configure"]
-  when (maybe True hasClientExes mapp) $ do
-    hasteCabal cfg $ withCabalFlags ["configure"]
-  return mapp
+  cfgstat <- readAppConfig
+  (conf_server, conf_client) <- case cfgstat of
+    AppConfOK cfg   -> return (hasServerExes cfg, hasClientExes cfg)
+    AppConfMissing  -> return (True, True)
+    AppConfBroken e -> failAppConfBroken e
+  when conf_server $ cabal cfg $ withCabalFlags ["configure"]
+  when conf_client $ hasteCabal cfg $ withCabalFlags ["configure"]
+  return cfgstat
