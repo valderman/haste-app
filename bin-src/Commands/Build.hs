@@ -11,8 +11,6 @@ import Config
 import Environment
 import Haste.App.Standalone.Embed
 
-type TargetName = String
-
 build :: Config -> Shell ()
 build = withBuildEnv $ \cfg -> do
     -- (Re-)create artifact dir
@@ -38,9 +36,9 @@ buildApp cfg AppConfig{..} = do
   where
     buildTarget Target{..} = do
       -- Build client and server parts
-      unless (exeType == App.Client) $ do
+      unless (exeType == App.Client) $ withLogging (Build exeName) Server $ do
         cabal cfg ["build", exeName, buildDir Server]
-      unless (exeType == App.Server) $ do
+      unless (exeType == App.Server) $ withLogging (Build exeName) Client $ do
         hasteCabal cfg ["build", exeName, buildDir Client]
 
       -- Finalize build and copy artifacts
@@ -85,7 +83,8 @@ buildWithoutAppConfig cfg = do
       echo "= Building server(s) ="
       echo "======================"
       echo ""
-      cabal cfg ["build", buildDir Server]
+      withLogging (Build noTarget) Server $ do
+        cabal cfg ["build", buildDir Server]
 
     buildClient cfg = do
       echo ""
@@ -93,7 +92,8 @@ buildWithoutAppConfig cfg = do
       echo "=  Building  client  ="
       echo "======================"
       echo ""
-      hasteCabal cfg ["build", buildDir Client]
+      withLogging (Build noTarget) Client $ do
+        hasteCabal cfg ["build", buildDir Client]
 
 -- | Copy the given artifact into the build artifact directory.
 copyArtifact :: AppPart -> TargetName -> Shell ()

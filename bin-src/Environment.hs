@@ -3,13 +3,26 @@ module Environment where
 import Control.Shell
 import Config
 
+type TargetName = String
+
+noTarget :: TargetName
+noTarget = ""
+
+-- | Write which log file?
+data Stage = Setup | Install | Configure | Build TargetName
+  deriving (Show, Eq)
+
 data AppPart = Client | Server
   deriving (Show, Read, Eq)
 
+-- | Name of the given AppPart, for use in file names and similar.
+appPartName :: AppPart -> String
+appPartName Client = "client"
+appPartName Server = "server"
+
 -- | Relative path to the scratch directory for each part.
 scratchDir :: AppPart -> FilePath
-scratchDir Client = scratchRoot </> "client"
-scratchDir Server = scratchRoot </> "server"
+scratchDir p = scratchRoot </> appPartName p
 
 -- | Root scratch directory.
 scratchRoot :: FilePath
@@ -62,6 +75,64 @@ buildDir part = "--builddir=" ++ (scratchDir part </> "dist")
 -- | Relative path to directory in which to place build artifacts.
 artifactDir :: FilePath
 artifactDir = "_app"
+
+-- | Relative path to log directory.
+logDir :: FilePath
+logDir = "_logs"
+
+-- | Relative path to the given log file.
+logFilePath :: Stage -> AppPart -> FilePath
+logFilePath s p = logDir </> logFileName s p
+
+-- | File name of the given log file, without leading path.
+logFileName :: Stage -> AppPart -> FilePath
+logFileName Setup p      = ("setup_" ++ appPartName p) <.> "log"
+logFileName Install p    = "install" <.> "log"
+logFileName Configure p  = ("configure_" ++ appPartName p) <.> "log"
+logFileName (Build "") p = ("build_" ++ appPartName p) <.> "log"
+logFileName (Build t) p  = concat ["build_", t, "_", appPartName p] <.> "log"
+
+-- | Directory for old log files.
+oldLogDir :: FilePath
+oldLogDir = logDir </> "_old"
+
+-- | Back up any existing log files.
+backupLogFiles :: Shell ()
+backupLogFiles = do
+    unless (isDirectory oldLogDir) $ mkdir True oldLogDir
+    fs <- filterM isLogFile =<< ls logDir
+    forM_ fs $ \f -> do
+      mv f (oldLogDir </> takeFileName f)
+  where
+    isLogFile f
+      | takeExtension f == ".log" = isFile f
+      | otherwise                 = pure False
+
+-- | Log standard output and error to the given files.
+withLogging :: Stage -> AppPart -> Shell () -> Shell ()
+withLogging st p act = do
+  unless (isDirectory logDir) $ mkdir True logDir
+  backupLogFiles
+  (out, err, reason) <- capture3 act
+  writeLogFile st p out err
+  case reason of
+    Failure err -> fail err
+    _           -> return ()
+
+-- | Write the specified log to file.
+writeLogFile :: Stage -> AppPart -> String -> String -> Shell ()
+writeLogFile st p out err = do
+  output (logFilePath st p) $ unlines
+    [ "======================="
+    , "= Errors and warnings ="
+    , "======================="
+    , err
+    , ""
+    , "======================="
+    , "= Diagnostic messages ="
+    , "======================="
+    , out
+    ]
 
 -- | Name of application configuration JSON file.
 appConfigFile :: FilePath

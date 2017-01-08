@@ -113,10 +113,8 @@ runTool name cfg
   | otherwise                            = fail $ "[BUG] no such tool: " ++ name
 
 -- | Try to guess the path of the given command. The first working binary in
---   the given list of search paths is preferred. Binaries are executed without
---   any argument to determine whether they are "working" or not.
---   If the binary can be executed, the given predicate is then executed over
---   the determined path for further verification.
+--   the given list of search paths is preferred. The given predicate is
+--   executed over each path to verify that it is indeed the correct binary.
 --   If no search path contains the binary, the default one on the system path
 --   is used.
 guessCommand :: String
@@ -126,7 +124,7 @@ guessCommand :: String
 guessCommand cmd isok paths = go $ (map (</> cmd) paths) ++ [cmd]
   where
     go (p:ps) =
-      (capture2 (run p []) >> guard (isok p) >> pure (Just p)) `orElse` go ps
+      (guard (isok p) >> pure (Just p)) `orElse` go ps
     go _ =
       pure Nothing
 
@@ -147,7 +145,7 @@ versionAtLeast ver = checkVer (>= ver) versionFlags
 
 -- | Don't check the version.
 anyVersion :: FilePath -> Shell Bool
-anyVersion = const $ pure True
+anyVersion p = (capture2 (run p ["--help"]) >> pure True) `orElse` pure False
 
 -- | Check whether the given predicate matches the output produced by the given
 --   program when invoked with any of the given flags.
