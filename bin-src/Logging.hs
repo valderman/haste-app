@@ -62,7 +62,7 @@ withLogging st p act = do
     failStage err msg = fail $ init $ concat
       [ "\nstage ", stagePartName st p, " failed:\n"
       , "  ", err, "\n\n"
-      , "relevant cabal output:"
+      , "relevant cabal output:\n"
       ] ++ unlines (map ("  " ++) (lines msg))
 
 -- | Write the specified log to file.
