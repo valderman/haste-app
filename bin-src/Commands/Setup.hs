@@ -17,4 +17,9 @@ setup = withBuildEnv $ \cfg -> do
   withLogging Install Server $ do
     cabal cfg $ withCabalFlags ["install", "--only-dependencies"]
   withLogging Install Client $ do
-    hasteCabal cfg $ withCabalFlags ["install", "--only-dependencies"]
+    hasteCabal cfg $ withCabalFlags [ "install"
+                                    , "--only-dependencies"
+                                    , "--constraint=haste-app +haste"
+                                    , "--constraint=haste-lib +haste"
+                                    , "--constraint=haste-prim +haste"
+                                    ]
