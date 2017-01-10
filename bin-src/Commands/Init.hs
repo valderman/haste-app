@@ -37,9 +37,13 @@ installLibs :: Shell ()
 installLibs = do
   when (isDirectory packagesDir) $ rmdir packagesDir
   mkdir True packagesDir
-  fetchLib "http://haste-lang.org/haste-lib-0.6-snapshot.tar.bz2"
   fetchLib "https://github.com/valderman/haste-app/archive/master.zip"
-  inDirectory packagesDir $ mv "haste-app-master" "haste-app"
+  fetchLib "https://github.com/valderman/haste-compiler/archive/master.zip"
+  inDirectory packagesDir $ do
+    mv "haste-app-master" "haste-app"
+    mv ("haste-compiler-master" </> "libraries" </> "haste-prim") "haste-prim"
+    mv ("haste-compiler-master" </> "libraries" </> "haste-lib") "haste-lib"
+    rmdir "haste-compiler-master"
 
 -- | Fetch haste-lib and haste-prim snapshots.
 fetchLib :: URI -> Shell ()
