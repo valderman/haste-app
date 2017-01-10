@@ -7,9 +7,10 @@ import Control.Shell.Extract
 
 import Environment
 
-hasteLinuxURI :: URI
-hasteLinuxURI =
-  "http://haste-lang.org/downloads/ghc-7.10/haste-compiler-0.5.5.1_ghc-7.10.3-linux.tar.bz2"
+hasteURI
+  | os == MacOS   = "http://haste-lang.org/downloads/ghc-7.10/haste-compiler-0.5.5.1_ghc-7.10.3-darwin.tar.bz2"
+  | os == Linux   = "http://haste-lang.org/downloads/ghc-7.10/haste-compiler-0.5.5.1_ghc-7.10.3-linux.tar.bz2"
+  | os == Windows = error "Automatic Haste install not supported on Windows yet."
 
 fetchAndUnpack :: URI -> Shell ()
 fetchAndUnpack uri = do
@@ -21,11 +22,12 @@ fetchAndUnpack uri = do
 installHaste :: Maybe (Shell ())
 installHaste =
   case os of
-    Linux -> Just $ inAppDirectory appName $ do
+    Windows -> Nothing
+    _       -> Just $ inAppDirectory appName $ do
       -- Check if Haste is already installed, since both Haste and haste-cabal
       -- might use this installer.
       unless (isFile $ "bin" </> "hastec") $ do
-        fetchAndUnpack hasteLinuxURI
+        fetchAndUnpack hasteURI
         curdir <- pwd
         run "ln" [ "-s"
                  , curdir </> "haste-compiler" </> "bin" </> "hastec"

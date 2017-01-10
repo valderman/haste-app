@@ -25,4 +25,5 @@ setup = withBuildEnv $ \cfg -> do
                                     , "--constraint=haste-app +haste +with-library"
                                     , "--constraint=haste-lib +haste"
                                     , "--constraint=haste-prim +haste"
+                                    , "--force-reinstalls"
                                     ]
