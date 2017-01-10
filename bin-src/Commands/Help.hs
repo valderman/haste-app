@@ -4,6 +4,7 @@ import Control.Shell
 import Data.Version
 import Config
 import Environment
+import Options (optionsHelp)
 import Paths_haste_app
 
 help :: Config -> Shell ()
@@ -22,6 +23,7 @@ mainHelp = echo $ init $ unlines
   , "Builds Haste.App applications, including standalone apps, in one go."
   , ""
   , "Available commands:"
+  , ""
   , "  build     - build all project targets. Targets and their settings are read"
   , "              from the application configuration file `" ++ appConfigFile ++ "',"
   , "              if present. Otherwise, if the project only has a single"
@@ -39,6 +41,9 @@ mainHelp = echo $ init $ unlines
   , "              the client and the server parts."
   , "  setup     - install all client and server dependencies, as well as any"
   , "              programs that can be automatically installed."
+  , ""
+  , "In addition, the build tool accepts the following options:"
+  , optionsHelp
   ]
 
 appConfigHelp :: Shell ()

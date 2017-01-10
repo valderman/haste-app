@@ -21,9 +21,10 @@ initialize = standardReqs $ \cfg -> do
       inDirectory (scratchDir Client) $ do
         capture2 $ run "haste-cabal" ["sandbox", "init"]
 
-      -- TODO: remove when Haste 0.6 and Haste.App are released
-      installLibs
-      mapM_ (addSandboxSource cfg) ["haste-prim", "haste-lib", "haste-app"]
+      -- TODO: remove when Haste 0.6 is released
+      installLibs (useHasteAppGit cfg)
+      mapM_ (addSandboxSource cfg) ["haste-prim", "haste-lib"]
+      when (useHasteAppGit cfg) $ addSandboxSource cfg "haste-app"
       echo "all done; now run `haste-app setup' to install any dependencies"
 
 addSandboxSource :: Config -> String -> Shell ()
@@ -33,14 +34,15 @@ addSandboxSource cfg pkgname = do
   where
     dir = packagesDir </> pkgname
 
-installLibs :: Shell ()
-installLibs = do
+installLibs :: Bool -> Shell ()
+installLibs hasteAppGit = do
   when (isDirectory packagesDir) $ rmdir packagesDir
   mkdir True packagesDir
-  fetchLib "https://github.com/valderman/haste-app/archive/master.zip"
+  when hasteAppGit $ do
+    fetchLib "https://github.com/valderman/haste-app/archive/master.zip"
   fetchLib "https://github.com/valderman/haste-compiler/archive/master.zip"
   inDirectory packagesDir $ do
-    mv "haste-app-master" "haste-app"
+    when hasteAppGit $ mv "haste-app-master" "haste-app"
     mv ("haste-compiler-master" </> "libraries" </> "haste-prim") "haste-prim"
     mv ("haste-compiler-master" </> "libraries" </> "haste-lib") "haste-lib"
     rmdir "haste-compiler-master"

@@ -34,6 +34,13 @@ data Config = Config
   , missingTools :: [ToolSpec]
     -- | Any extra non-option arguments.
   , extraArgs :: [String]
+    -- | Download a snapshot of Haste.App from git instead of using the latest
+    --   suitable version from Hackage?
+    --   Default: @False@
+  , useHasteAppGit :: Bool
+    -- | Show help message, then exit.
+    --   Default: @False@
+  , showHelpMessage :: Bool
   }
 
 -- | All external tools needed by the build tool.
@@ -69,9 +76,11 @@ defaultConfig extras = withAppDirectory appName $ \appdir -> do
   ts <- mapM (resolveTool [appdir </> "bin"]) allTools
   let (missing, present) = partitionEithers ts
   return $ Config
-    { tools        = present
-    , missingTools = missing
-    , extraArgs    = extras
+    { tools           = present
+    , missingTools    = missing
+    , extraArgs       = extras
+    , useHasteAppGit  = False
+    , showHelpMessage = False
     }
 
 -- | Perform the given action if all tools in the given list are present. Also
