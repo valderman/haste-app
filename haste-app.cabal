@@ -42,6 +42,8 @@ executable haste-app
     Commands.Setup,
     Config,
     Environment,
+    Haste.App.Config,
+    Haste.App.Protocol.Types,
     Haste.App.Standalone.Embed,
     Logging,
     Options,
@@ -56,7 +58,6 @@ executable haste-app
       data-embed       >= 0.1   && < 0.2,
       directory        >= 1.2   && < 1.3,
       filepath         >= 1.4   && < 1.5,
-      haste-lib        >= 0.6   && < 0.7,
       network-info     >= 0.2   && < 0.3,
       shellmate        >= 0.3.4 && < 0.4,
       shellmate-extras >= 0.3.4 && < 0.4,
@@ -72,7 +73,8 @@ library
   other-modules:
     Haste.App.Client,
     Haste.App.Config,
-    Haste.App.Protocol
+    Haste.App.Protocol,
+    Haste.App.Protocol.Types,
     Haste.App.Remote,
     Haste.App.Routing,
     Haste.App.Server,

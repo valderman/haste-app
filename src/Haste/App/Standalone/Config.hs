@@ -9,8 +9,7 @@ import System.Environment
 import System.Exit
 import System.IO
 import System.IO.Unsafe
-import qualified Haste.App.Protocol as Proto (Endpoint (..), TLSConfig (..))
-import Haste.App.Config
+import qualified Haste.App.Protocol.Types as Proto
 import Data.Version (Version (..), showVersion)
 import Paths_haste_app (version)
 
@@ -186,7 +185,7 @@ help :: [String] -> String
 help = usageInfo helpHeader . optspec
 
 -- | Read configuration from command line and parse it.
-getConfig :: [EndpointConfig] -> IO (Config, [FilePath])
+getConfig :: [Proto.EndpointConfig] -> IO (Config, [FilePath])
 getConfig eps = do
     args <- getArgs
     case getOpt Permute (optspec endpointNames) args of
@@ -197,7 +196,7 @@ getConfig eps = do
         return (cfg {workDir = wd, dataDir = dd}, fs)
       (_, _, errs)   -> mapM_ (hPutStr stderr) errs >> exitFailure
   where
-    endpointNames = [name | Configurable name <- eps]
+    endpointNames = [name | Proto.Configurable name <- eps]
     fixPath p = makeAbsolute p >>= canonicalizePath
 
 -- | Attempt to autodetect the host we're currently running on.

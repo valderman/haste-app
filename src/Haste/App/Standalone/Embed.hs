@@ -16,7 +16,7 @@ import System.FilePath
 import System.IO
 import System.IO.Temp
 import Haste.App.Standalone.Config
-import Haste.App.Protocol (Endpoint (..))
+import Haste.App.Protocol.Types (Endpoint (..))
 
 -- | List all files embedded in this executable.
 embeddedFiles :: [FilePath]
