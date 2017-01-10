@@ -2,16 +2,17 @@ module Config
   ( ToolSpec (..), Tool, Config (..)
   , defaultConfig, resolveTool, allTools
   , runTool, requireTools, standardReqs
+  , withBuildEnv, cabal, hasteCabal
   ) where
 import Control.Shell
 import Data.Either
 import Data.List (isPrefixOf)
+import Data.Maybe
 import Data.Version
 import Text.ParserCombinators.ReadP
 
--- | Name of the Haste.App build tool.
-appName :: String
-appName = "haste-app"
+import Environment
+import ToolInstallers
 
 data ToolSpec = ToolSpec
   { -- | Name of the tool.
@@ -21,7 +22,7 @@ data ToolSpec = ToolSpec
   , toolPath :: [FilePath] -> Shell (Maybe FilePath)
     -- | Download and install tool locally for Haste.App into the given
     --   directory, if possible.
-  , toolInstall :: Maybe (FilePath -> Shell ())
+  , toolInstall :: Maybe (Shell ())
   }
 
 type Tool = (String, FilePath)
@@ -49,7 +50,7 @@ allTools =
   [ ToolSpec
       { toolName    = "haste-cabal"
       , toolPath    = guessCommand "haste-cabal" anyVersion
-      , toolInstall = Nothing
+      , toolInstall = installHaste
       }
   , ToolSpec
       { toolName    = "cabal"
@@ -62,9 +63,9 @@ allTools =
       , toolInstall = Nothing
       }
   , ToolSpec
-      { toolName    = "Haste " ++ showVersion hasteVer ++ "+"
+      { toolName    = "Haste"
       , toolPath    = guessCommand "hastec" (versionAtLeast hasteVer)
-      , toolInstall = Nothing
+      , toolInstall = installHaste
       }
   ]
   where
@@ -88,22 +89,42 @@ defaultConfig extras = withAppDirectory appName $ \appdir -> do
 --   list of available tools.
 requireTools :: [String] -> (Config -> Shell a) -> Config -> Shell a
 requireTools req act cfg = do
-    case [t | ToolSpec t _ _ <- missingTools cfg, t `elem` req] of
+    case [t | t <- missingTools cfg, toolName t `elem` req] of
       []      -> act (cfg {tools = [t | t <- tools cfg, fst t `elem` req]})
       missing -> fail $ missingToolsError missing
   where
-    -- TODO: check which tools can be automatically installed and offer to
-    --       install them
     missingToolsError ts = concat
-      [ "required external programs were not found:\n"
-      , unlines $ map ("  " ++) ts
-      , "please make sure that these tools are installed and present on your "
-      , "search path"
+      [ "Required external programs were not found:\n"
+      , unlines $ ["  " ++ toolName t | t <- ts]
+      , case partitionInstallable ts of
+          ([], uninstallable) ->
+            "Please install these programs before running Haste.App."
+          (installable, []) ->
+            "Please run `haste-app toolsetup' to install them."
+          (installable, uninstallable) -> init $ unlines
+            [ "\nThe following programs can be automatically installed:"
+            , init $ unlines $ map ("  " ++ ) installable
+            , "Please run `haste-app toolsetup' to install them."
+            , "\nHowever, the following programs need to be installed manually:"
+            , init $ unlines $ map ("  " ++ ) uninstallable
+            , "Please install these programs before running Haste.App."
+            ]
       ]
+
+-- | Split the list of tool specifications into a list of installable and
+--   uninstallable tools.
+partitionInstallable :: [ToolSpec] -> ([String], [String])
+partitionInstallable ts = ( [toolName t | t <- ts, isJust $ toolInstall t]
+                          , [toolName t | t <- ts, isNothing $ toolInstall t])
 
 -- | Require Haste, GHC, haste-cabal and cabal to be present.
 standardReqs :: (Config -> Shell a) -> Config -> Shell a
-standardReqs = requireTools ["haste-cabal", "cabal", "GHC 7.10", "Haste 0.6+"]
+standardReqs = requireTools
+  [ "haste-cabal"
+  , "cabal"
+  , "GHC 7.10"
+  , "Haste"
+  ]
 
 -- | Attempt to locate the given tool and return a @(name, binary)@ pair if
 --   found. If not, return the tool specification itself.
@@ -172,3 +193,23 @@ readVer s =
   case readP_to_S parseVersion s of
     [] -> Nothing
     vs -> Just $ fst $ last vs
+
+-- | Perform the given computation if we're in a Haste.App build environment,
+--   otherwise complain and exit. Also ensures that @cabal@ and @haste-cabal@
+--   are available.
+withBuildEnv :: (Config -> Shell a) -> Config -> Shell a
+withBuildEnv act = standardReqs $ \cfg -> do
+  hbe <- hasBuildEnv
+  if hbe
+    then act cfg
+    else fail "not a Haste.App build environment; use `haste-app init' to create one first"
+
+-- | Run @haste-cabal@ tool in client sandbox.
+hasteCabal :: Config -> [String] -> Shell ()
+hasteCabal cfg args = runTool "haste-cabal" cfg args'
+  where args' = ("--sandbox-config-file=" ++ clientSandboxConfig) : args
+
+-- | Run @cabal@ tool in server sandbox.
+cabal :: Config -> [String] -> Shell ()
+cabal cfg args = runTool "cabal" cfg args'
+  where args' = ("--sandbox-config-file=" ++ serverSandboxConfig) : args

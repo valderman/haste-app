@@ -44,6 +44,7 @@ executable haste-app
     Commands.Init,
     Commands.Install,
     Commands.Setup,
+    Commands.ToolSetup,
     Config,
     Environment,
     Haste.App.Config,
@@ -51,7 +52,8 @@ executable haste-app
     Haste.App.Standalone.Embed,
     Logging,
     Options,
-    Paths_haste_app
+    Paths_haste_app,
+    ToolInstallers
   if flag(haste) || !flag(with-build-tool)
     buildable: False
   else

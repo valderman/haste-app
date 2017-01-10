@@ -41,6 +41,8 @@ mainHelp = echo $ init $ unlines
   , "              the client and the server parts."
   , "  setup     - install all client and server dependencies, as well as any"
   , "              programs that can be automatically installed."
+  , "  toolsetup - install any missing external programs that can be automatically"
+  , "              installed."
   , ""
   , "In addition, the build tool accepts the following options:"
   , optionsHelp

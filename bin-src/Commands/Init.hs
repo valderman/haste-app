@@ -17,9 +17,9 @@ initialize = standardReqs $ \cfg -> do
       mkdir True (scratchDir Server)
       mkdir True (scratchDir Client)
       inDirectory (scratchDir Server) $ do
-        capture2 $ run "cabal" ["sandbox", "init"]
+        capture2 $ runTool "cabal" cfg ["sandbox", "init"]
       inDirectory (scratchDir Client) $ do
-        capture2 $ run "haste-cabal" ["sandbox", "init"]
+        capture2 $ runTool "haste-cabal" cfg ["sandbox", "init"]
 
       -- TODO: remove when Haste 0.6 is released
       installLibs (useHasteAppGit cfg)
@@ -27,6 +27,7 @@ initialize = standardReqs $ \cfg -> do
       when (useHasteAppGit cfg) $ addSandboxSource cfg "haste-app"
       echo "all done; now run `haste-app setup' to install any dependencies"
 
+-- | Att a package downloaded from off-hackage as a sandbox package source.
 addSandboxSource :: Config -> String -> Shell ()
 addSandboxSource cfg pkgname = do
     cabal cfg ["sandbox", "add-source", dir]
@@ -34,6 +35,8 @@ addSandboxSource cfg pkgname = do
   where
     dir = packagesDir </> pkgname
 
+-- | Fetch snapshots of recent haste libraries. Also fetch haste-app snapshot
+--   if explicitly requested by the user.
 installLibs :: Bool -> Shell ()
 installLibs hasteAppGit = do
   when (isDirectory packagesDir) $ rmdir packagesDir
@@ -51,7 +54,7 @@ installLibs hasteAppGit = do
 fetchLib :: URI -> Shell ()
 fetchLib uri = do
   inDirectory packagesDir $ do
-    bs <- fetchFile (takeFileName uri) uri
+    fetchFile (takeFileName uri) uri
     extractWith (defaultExtractOptions { removeArchive = True
                                        , separateDirectory = False})
                 (takeFileName uri)

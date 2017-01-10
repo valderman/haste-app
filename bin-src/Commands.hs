@@ -11,6 +11,7 @@ import Commands.Help
 import Commands.Init
 import Commands.Install
 import Commands.Setup
+import Commands.ToolSetup
 
 -- | All available Haste.App commands.
 availableCommands :: [(String, Config -> Shell ())]
@@ -23,4 +24,5 @@ availableCommands =
   , ("init",      initialize)
   , ("install",   install)
   , ("setup",     setup)
+  , ("toolsetup", toolSetup)
   ]

@@ -1,25 +1,24 @@
 -- | Utilities for working with Haste.App's multiple environments.
 module Environment
   ( TargetName, AppPart (..), OS (..)
-  , os, hasBuildEnv, withBuildEnv
-  , scratchRoot, scratchDir, buildDir, artifactDir, packagesDir
+  , os, hasBuildEnv
+  , scratchRoot, scratchDir, buildDir, artifactDir, packagesDir, appName
   , appConfigFile, appPartName, noTarget
-  , cabal, hasteCabal, withCabalFlags
+  , withCabalFlags
+  , clientSandboxConfig, serverSandboxConfig
   ) where
 import Control.Shell
 import qualified System.Info (os)
-
-import Config
 
 type TargetName = String
 
 noTarget :: TargetName
 noTarget = ""
 
-data AppPart = Client | Server
+data OS = Linux | Windows | MacOS
   deriving (Show, Eq, Ord)
 
-data OS = Linux | Windows | MacOS
+data AppPart = Client | Server
   deriving (Show, Eq, Ord)
 
 -- | What OS are we running on?
@@ -28,6 +27,10 @@ os | System.Info.os == "mingw32" = Windows
    | System.Info.os == "linux"   = Linux
    | System.Info.os == "darwin"  = MacOS
    | otherwise                   = error "unsupported operating system"
+
+-- | Name of the Haste.App build tool.
+appName :: String
+appName = "haste-app"
 
 -- | Name of the given AppPart, for use in file names and similar.
 appPartName :: AppPart -> String
@@ -50,16 +53,6 @@ packagesDir = scratchRoot </> "packages"
 hasBuildEnv :: Shell Bool
 hasBuildEnv = isDirectory scratchRoot
 
--- | Perform the given computation if we're in a Haste.App build environment,
---   otherwise complain and exit. Also ensures that @cabal@ and @haste-cabal@
---   are available.
-withBuildEnv :: (Config -> Shell a) -> Config -> Shell a
-withBuildEnv act = standardReqs $ \cfg -> do
-  hbe <- hasBuildEnv
-  if hbe
-    then act cfg
-    else fail "not a Haste.App build environment; use `haste-app init' to create one first"
-
 -- | Name of the cabal sandbox configuration file.
 sandboxConfigFile :: FilePath
 sandboxConfigFile = "cabal.sandbox.config"
@@ -72,19 +65,9 @@ serverSandboxConfig = scratchDir Server </> sandboxConfigFile
 clientSandboxConfig :: FilePath
 clientSandboxConfig = scratchDir Client </> sandboxConfigFile
 
--- | Run @haste-cabal@ tool in client sandbox.
-hasteCabal :: Config -> [String] -> Shell ()
-hasteCabal cfg args = runTool "haste-cabal" cfg args'
-  where args' = ("--sandbox-config-file=" ++ clientSandboxConfig) : args
-
 -- | Add @-fhaste-app@ list of args.
 withCabalFlags :: [String] -> [String]
 withCabalFlags = ("-fhaste-app" :)
-
--- | Run @cabal@ tool in server sandbox.
-cabal :: Config -> [String] -> Shell ()
-cabal cfg args = runTool "cabal" cfg args'
-  where args' = ("--sandbox-config-file=" ++ serverSandboxConfig) : args
 
 -- | Cabal @--builddir@ argument for the given application part.
 buildDir :: AppPart -> String
