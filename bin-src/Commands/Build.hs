@@ -95,11 +95,11 @@ embedAndCopy :: TargetName -> TargetName -> FilePath -> [FilePath] -> Shell ()
 embedAndCopy cli srv embedDir embedFiles = do
     echo "embedding client and extra files..."
     copyArtifact Server srv
-    withCustomTempFile TextMode "." $ \js h -> do
-      -- Use a temp file name to avoid putting build paths into the artifact.
-      hClose h
-      cp cliFile js
-      liftIO $ embedFilesInto 1 srvFile js extras
+    withCustomTempDirectory "." $ \tmpdir -> do
+      let tmp = drop 1 $ dropWhile (not . isPathSeparator) tmpdir
+          localCliFile = replaceExtension (tmp </> takeFileName cliFile) ".js"
+      cp cliFile localCliFile
+      liftIO $ embedFilesInto 1 srvFile localCliFile extras
   where
     extras  = [embedDir </> f | f <- embedFiles]
     cliFile = buildArtifactPath Client cli
