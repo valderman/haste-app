@@ -69,7 +69,7 @@ allTools =
       }
   ]
   where
-    hasteVer = makeVersion [0,5,5,1]
+    hasteVer = makeVersion [0,6,0,0]
 
 -- | Build the default configuration.
 defaultConfig :: [String] -> Shell Config
