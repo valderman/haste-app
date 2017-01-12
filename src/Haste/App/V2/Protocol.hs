@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | Haste.App client-server protocol.
-module Haste.App.Protocol
-  ( module Haste.App.Protocol.Types
+module Haste.App.V2.Protocol
+  ( module Haste.App.V2.Protocol.Types
   , ServerException (..), ServerCall (..), ServerReply (..)
   ) where
 import Control.Exception
@@ -10,7 +10,7 @@ import Data.Typeable
 import GHC.StaticPtr
 import Haste.Binary
 import qualified Haste.Foreign as HF
-import Haste.App.Protocol.Types
+import Haste.App.V2.Protocol.Types
 
 instance HF.FromAny Endpoint where
   fromAny o = do

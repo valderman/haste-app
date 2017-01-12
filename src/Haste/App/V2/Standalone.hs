@@ -1,17 +1,17 @@
 {-# LANGUAGE OverloadedStrings, CPP #-}
 -- | Create standalone Haste.App applications, which don't require a web server
 --   or static Haste.App server/port configuration.
-module Haste.App.Standalone
-  ( module Haste.App
+module Haste.App.V2.Standalone
+  ( module Haste.App.V2
   , EndpointConfig (..)
   , runStandaloneApp
   ) where
-import Haste.App
+import Haste.App.V2
 #ifdef __HASTE__
 import Control.Monad (void)
 import Haste
 #else
-import Haste.App.Standalone.Server
+import Haste.App.V2.Standalone.Server
 #endif
 
 -- | Run a Haste.App application in standalone mode: host/port configuration

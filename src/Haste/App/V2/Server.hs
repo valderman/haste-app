@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP, OverloadedStrings #-}
-module Haste.App.Server (unsafeFromBlob, serverLoop) where
+module Haste.App.V2.Server (unsafeFromBlob, serverLoop) where
 #ifdef __HASTE__
 unsafeFromBlob _ = undefined
 serverLoop _ _ = pure undefined
@@ -11,7 +11,7 @@ import GHC.StaticPtr
 import Unsafe.Coerce
 import Network.WebSockets as WS
 import Haste.Binary
-import Haste.App.Protocol
+import Haste.App.V2.Protocol
 import Haste.Concurrent (concurrent, liftIO)
 
 import Network.HTTP.Types

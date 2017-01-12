@@ -1,5 +1,5 @@
 -- | Types for the Haste.App protocol.
-module Haste.App.Protocol.Types where
+module Haste.App.V2.Protocol.Types where
 import Data.Int
 
 type Nonce = Int32

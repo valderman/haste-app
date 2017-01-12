@@ -1,10 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Haste.App.Standalone.Server (runStandaloneServer) where
+module Haste.App.V2.Standalone.Server (runStandaloneServer) where
 import Control.Concurrent
 import Control.Exception
 import Control.Monad
 import qualified Data.Text as T
-import Haste.App
+import Haste.App.V2
 import Network.HTTP.Types
 import Network.Wai
 import Network.Wai.Handler.Warp
@@ -12,8 +12,8 @@ import System.Directory hiding (findFile)
 import System.Exit
 import System.FilePath
 import System.IO
-import Haste.App.Standalone.Config
-import Haste.App.Standalone.Embed
+import Haste.App.V2.Standalone.Config
+import Haste.App.V2.Standalone.Embed
 
 -- | Run application with settings obtained from the command line.
 runStandaloneServer :: [EndpointConfig] -> IO ()

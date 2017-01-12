@@ -7,17 +7,17 @@
 --
 --   See <https://github.com/valderman/haste-app/blob/master/README.md> for
 --   a short tutorial on getting started with Haste.App using this module.
-module Haste.App.Simple
+module Haste.App.V2.Simple
   ( module Haste
-  , module Haste.App.Standalone
+  , module Haste.App.V2.Standalone
   , module Haste.Events
   , module Haste.DOM.JSString
   , runSimpleApp, simpleEndpoint
   ) where
 import Data.Proxy
 import Haste
-import Haste.App.Config (resolveEndpoint)
-import Haste.App.Standalone
+import Haste.App.V2.Config (resolveEndpoint)
+import Haste.App.V2.Standalone
 import Haste.DOM.JSString
 import Haste.Events
 

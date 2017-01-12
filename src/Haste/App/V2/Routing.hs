@@ -5,16 +5,16 @@
              MultiParamTypeClasses #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
-module Haste.App.Routing
+module Haste.App.V2.Routing
   ( Node (..)
   , Tunnel
   , tunnel
   ) where
 import Data.Proxy
 import Haste.Binary -- for serialization
-import Haste.App.Protocol
-import Haste.App.Config
-import Haste.Concurrent (CIO)
+import Haste.App.V2.Protocol
+import Haste.App.V2.Config
+import Haste.Concurrent
 
 -- | Nest a server call in zero or more server hop packets, as directed by the
 --   given path.

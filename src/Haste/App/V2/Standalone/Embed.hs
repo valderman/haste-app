@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 -- | Creating and reading file embeddings.
-module Haste.App.Standalone.Embed
+module Haste.App.V2.Standalone.Embed
   ( embedFiles, embedFilesInto, findEmbeddedFile, embeddedFiles
   , mkJSMain, jsMainExists , jsMainFileName
   ) where
@@ -15,8 +15,8 @@ import System.Directory
 import System.FilePath
 import System.IO
 import System.IO.Temp
-import Haste.App.Standalone.Config
-import Haste.App.Protocol.Types (Endpoint (..))
+import Haste.App.V2.Standalone.Config
+import Haste.App.V2.Protocol.Types (Endpoint (..))
 
 -- | List all files embedded in this executable.
 embeddedFiles :: [FilePath]

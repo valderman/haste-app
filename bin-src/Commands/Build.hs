@@ -8,7 +8,7 @@ import qualified AppConfig as App (ExeType (..))
 import Commands.Configure
 import Config
 import Environment
-import Haste.App.Standalone.Embed
+import Haste.App.V2.Standalone.Embed
 import Logging
 
 build :: Config -> Shell ()

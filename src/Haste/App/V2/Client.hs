@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Haste.App.Client where
+module Haste.App.V2.Client where
 import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
@@ -8,10 +8,11 @@ import Data.IORef
 import qualified Data.Map.Strict as Map
 import Haste.Binary hiding (get)
 import Haste.Concurrent
-import Haste.WebSockets
-import Haste.App.Protocol
-import Haste.App.Config (resolveEndpoint)
+import Haste.App.V2.WebSockets
+import Haste.App.V2.Protocol
+import Haste.App.V2.Config (resolveEndpoint)
 import qualified Haste.JSString as JSS
+import Haste.Prim (fromJSStr)
 
 -- For default onDisconnect handler
 import Haste (toJSString, catJSStr, setTimer, Interval (..))
@@ -48,6 +49,10 @@ instance MonadConc Client where
   liftConc = liftCIO
   fork (Client m) = Client $ \env -> fork (m env)
 
+instance MonadBlob Client where
+  getBlobData = liftCIO . getBlobData
+  getBlobText' = liftCIO . getBlobText'
+
 instance MonadIO Client where
   liftIO = liftCIO . liftIO
 
@@ -61,7 +66,11 @@ newtype Barrier = Barrier (MVar ())
 
 -- | Open a barrier. Calling 'await' on the barrier will no longer block.
 openBarrier :: Barrier -> Client ()
-openBarrier (Barrier v) = liftCIO $ void $ tryPutMVar v ()
+openBarrier (Barrier v) = liftCIO $ void $ do
+  mv <- peekMVar v
+  case mv of
+    Just _ -> putMVar v ()
+    _      -> return ()
 
 -- | Block until the given barrier becomes open. If it is already open, pass
 --   immediately.
@@ -209,7 +218,7 @@ reconnect ep = do
     url = JSS.pack $ concat [proto ep, endpointHost ep, ":", show (endpointPort ep)]
 
     cfg rmr = noHandlers
-      { wsOpenURL   = url
+      { wsOpenURL   = fromJSStr url
       , wsOnMessage = handler rmr
       }
           

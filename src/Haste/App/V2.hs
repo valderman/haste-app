@@ -1,5 +1,5 @@
 {-# LANGUAGE CPP, GeneralizedNewtypeDeriving #-}
-module Haste.App
+module Haste.App.V2
   ( EndpointConfig (..), Endpoint (..), Node (..)
   , MonadConc (..), MonadIO (..)
   , Callback, Remotable, Remote, RunsOn, remote, import_, annotate
@@ -9,15 +9,15 @@ module Haste.App
 import Control.Monad.IO.Class
 import Data.Proxy
 import Haste.Binary
-import Haste.App.Remote
-import Haste.App.Client
-import Haste.App.Config
-import Haste.App.Protocol
-import Haste.App.Routing
-import Haste.Concurrent (CIO, concurrent, fork)
+import Haste.App.V2.Remote
+import Haste.App.V2.Client
+import Haste.App.V2.Config
+import Haste.App.V2.Protocol
+import Haste.App.V2.Routing
+import Haste.Concurrent (MonadConc, CIO, concurrent, fork)
 
 #ifndef __HASTE__
-import Haste.App.Server
+import Haste.App.V2.Server
 import Control.Concurrent (forkIO, threadDelay)
 import Data.List
 import Unsafe.Coerce
@@ -48,7 +48,7 @@ runApp eps _ = mapM_ (forkIO . uncurry serverLoop) ports >> eternalSlumber
 --   In order to make a simple single-server application, creating an
 --   appropriate instance of 'Node' for 'Server' is all that's needed.
 newtype Server a = Server {invokeServer :: CIO a}
-  deriving (Functor, Applicative, Monad, MonadIO, MonadConc)
+  deriving (Functor, Applicative, Monad, MonadIO, MonadConc, MonadBlob)
 
 -- | Force the type of a monadic computation. Used to annotate inline remote
 --   imports.

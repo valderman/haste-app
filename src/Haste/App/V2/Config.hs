@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Haste.App.Config where
-import Haste.App.Protocol
+module Haste.App.V2.Config where
+import Haste.App.V2.Protocol
 import Haste.Foreign
 import System.IO.Unsafe
 import Control.Exception

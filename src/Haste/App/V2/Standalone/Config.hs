@@ -1,5 +1,5 @@
 -- | Standalone Haste.App server-side configuration and command line handling.
-module Haste.App.Standalone.Config where
+module Haste.App.V2.Standalone.Config where
 import Data.IORef
 import Data.List
 import Network.Info
@@ -9,7 +9,7 @@ import System.Environment
 import System.Exit
 import System.IO
 import System.IO.Unsafe
-import qualified Haste.App.Protocol.Types as Proto
+import qualified Haste.App.V2.Protocol.Types as Proto
 import Data.Version (Version (..), showVersion)
 import Paths_haste_app (version)
 

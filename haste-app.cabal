@@ -22,12 +22,8 @@ flag with-build-tool
   description: Install the build tool.
 
 flag with-library
-  default: False
+  default: True
   description: Install the libraries.
-
-flag haste
-  default: False
-  description: Package is being installed for Haste.
 
 executable haste-app
   hs-source-dirs: src, bin-src
@@ -47,14 +43,14 @@ executable haste-app
     Commands.ToolSetup,
     Config,
     Environment,
-    Haste.App.Config,
-    Haste.App.Protocol.Types,
-    Haste.App.Standalone.Embed,
+    Haste.App.V2.Config,
+    Haste.App.V2.Protocol.Types,
+    Haste.App.V2.Standalone.Embed,
     Logging,
     Options,
     Paths_haste_app,
     ToolInstallers
-  if flag(haste) || !flag(with-build-tool)
+  if impl(haste) || !flag(with-build-tool)
     buildable: False
   else
     build-depends:
@@ -73,17 +69,18 @@ executable haste-app
 
 library
   exposed-modules:
-    Haste.App,
-    Haste.App.Simple,
-    Haste.App.Standalone
+    Haste.App.V2,
+    Haste.App.V2.Simple,
+    Haste.App.V2.Standalone
   other-modules:
-    Haste.App.Client,
-    Haste.App.Config,
-    Haste.App.Protocol,
-    Haste.App.Protocol.Types,
-    Haste.App.Remote,
-    Haste.App.Routing,
-    Haste.App.Server,
+    Haste.App.V2.Client,
+    Haste.App.V2.Config,
+    Haste.App.V2.Protocol,
+    Haste.App.V2.Protocol.Types,
+    Haste.App.V2.Remote,
+    Haste.App.V2.Routing,
+    Haste.App.V2.Server,
+    Haste.App.V2.WebSockets,
     Paths_haste_app
   other-extensions:
     CPP,
@@ -103,17 +100,22 @@ library
   if !flag(with-library)
     buildable: False
   else
+    if impl(haste)
+      build-depends:
+        haste-lib      >=0.5.5 && <0.6,
+        haste-prim     >=0.5.5 && <0.6
+    else
+      build-depends:
+        haste-compiler >=0.5.5 && <0.6
     build-depends:
       base         >=4.8 && <4.9,
       transformers >=0.4 && <0.6,
-      haste-lib    >=0.6 && <0.7,
-      haste-prim   >=0.6 && <0.7,
       containers   >=0.5 && <0.6
-    if !flag(haste)
+    if !impl(haste)
       other-modules:
-        Haste.App.Standalone.Config,
-        Haste.App.Standalone.Embed,
-        Haste.App.Standalone.Server
+        Haste.App.V2.Standalone.Config,
+        Haste.App.V2.Standalone.Embed,
+        Haste.App.V2.Standalone.Server
       build-depends:
         bytestring     >=0.10 && <0.11,
         data-embed     >=0.1  && <0.2,
