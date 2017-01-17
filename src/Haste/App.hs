@@ -1,10 +1,11 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
 module Haste.App
   ( EndpointConfig (..), Endpoint (..), Node (..)
   , MonadConc (..), MonadIO (..)
   , Callback, Remotable, Remote, RunsOn, remote, import_, annotate
   , Client, Server, ServerException (..), Proxy (..)
   , runApp, invokeServer, reconnect, onDisconnect, onReconnect
+  , using
   ) where
 import Control.Monad.IO.Class
 import Data.Proxy
@@ -24,6 +25,8 @@ import Unsafe.Coerce
 import Haste.Prim
 import Data.ByteString.Lazy.UTF8
 #endif
+
+import GHC.StaticPtr
 
 -- | Run a Haste.App application. On the client side, a thread is forked off
 --   to run the client part in isolation.
@@ -66,3 +69,21 @@ type RunsOn m = m ()
 --   This is essentially a more readable way to say @return () :: Server ()@.
 annotate :: Monad m => RunsOn m
 annotate = return ()
+
+-- | Convenience function to use inline remote blocks.
+--   Since remote functions rely on static pointers, inline blocks must not have
+--   any free variables. Instead, this function explicitly captures any free
+--   variables and constructs an explicit closure.
+--
+--   An example of usage:
+-- > example :: Client ()
+-- > example = do
+-- >   name <- prompt "What's your name?"
+-- >   age <- prompt "What's your age?"
+-- >   using (name, age) $ static (import $ \(name, age) -> do
+-- >       annotate :: RunsOn Server
+-- >       JSString.putStrLn (JSString.concat ["name is ", age, " years old"])
+-- >     )
+using :: forall m a b. (Binary a, Remotable m b)
+        => a -> (StaticPtr (Import m (a -> Remote m b))) -> b
+using fv f = remote f fv
