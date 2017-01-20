@@ -2,7 +2,7 @@
 module Haste.App
   ( EndpointConfig (..), Endpoint (..), Node (..)
   , MonadConc (..), MonadIO (..)
-  , Callback, Remotable, Remote, RunsOn, remote, import_, annotate
+  , Callback, Remotable, Remote, RunsOn, remote, dispatch, annotate
   , Client, Server, ServerException (..), Proxy (..)
   , runApp, invokeServer, reconnect, onDisconnect, onReconnect
   , using
@@ -61,7 +61,7 @@ type RunsOn m = m ()
 --   This is often necessary when doing inline imports:
 --
 --       reverse_ :: String -> Client String
---       reverse_ = remote $ static (import_ $ \x -> do
+--       reverse_ = dispatch $ static (remote $ \x -> do
 --           annotate :: RunsOn Server
 --           return (reverse x)
 --         )
@@ -86,4 +86,4 @@ annotate = return ()
 -- >     )
 using :: forall m a b. (Binary a, Remotable m b)
         => a -> (StaticPtr (Import m (a -> Remote m b))) -> b
-using fv f = remote f fv
+using fv f = dispatch f fv

@@ -22,7 +22,7 @@ import Haste.App.Simple
 import qualified Haste.JSString as JSS
 
 hello :: String -> Client String
-hello = remote $ static (import_ $ \name -> do
+hello = dispatch $ static (remote $ \name -> do
     annotate :: RunsOn Server
     liftIO $ putStrLn $ name ++ " says hello"
     return $ "Why, hello to you too, " ++ name ++ "!"
@@ -41,9 +41,9 @@ running `./your_app -e your_app.js`. Now and point your web browser to the URL
 it prints. Congratulations, you've written, compiled and run your first
 Haste.App application!
 
-The `import_` function imports a computation on some server node to the client.
+The `remote` function imports a computation on some server node to the client.
 This import can then be turned into a client-side function, using the `static`
-keyword and the `remote` function, which when called cause the computation to
+keyword and the `dispatch` function, which when called cause the computation to
 be executed on its home node, and the result to be returned to the client.
 In this example, the server node used is called `Server` and is defined by
 Haste.App as a minimal base from which to build more complicated server nodes.
@@ -68,7 +68,7 @@ For more information, build and read the Haddock docs: `cabal haddock`.
 
 TODO
 ----
-* Generalise `remote` to import functions to any node, not just `Client`.
+* Generalise `dispatch` to import functions to any node, not just `Client`.
 * Specify which endpoints to start using annotations.
 * Add REST service local call endpoint constructor and EDSL for describing how
   to translate from function calls to such services.

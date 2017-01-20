@@ -25,18 +25,18 @@ type family Remote m a where
   Remote m (a -> b)   = (a -> Remote m b)
   Remote m (Client a) = m a
 
--- | A client-side frontend for a 'Remote' function.
+-- | A client-side frontend for a 'Dispatch' function.
 class Node m => Remotable m a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
-  remote' :: Proxy m -> StaticKey -> [Blob] -> a
+  dispatch' :: Proxy m -> StaticKey -> [Blob] -> a
 
 instance (Binary a, Remotable m b) => Remotable m (a -> b) where
-  remote' pm k xs x = remote' pm k (encode x : xs)
+  dispatch' pm k xs x = dispatch' pm k (encode x : xs)
 
 instance forall m a. (Tunnel Client (ClientOf m), Node m, Binary a)
          => Remotable m (Client a) where
-  remote' pm k xs = do
+  dispatch' pm k xs = do
     Right x <- decodeBlob =<< call pm k (reverse xs)
     return x
 
@@ -74,8 +74,8 @@ call pm k xs = do
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[Blob] -> Server Blob@, with the same semantics.
 --   This allows the function to be called remotely via a static pointer.
-import_ :: (Node m, Callback m a) => a -> Import m a
-import_ f = Import $ \x -> invoke (blob f x)
+remote :: (Node m, Callback m a) => a -> Import m a
+remote f = Import $ \x -> invoke (blob f x)
 
 -- | Turn a static pointer to a serializified function into a client-side
 --   function which, when fully applied, is executed on the server.
@@ -83,6 +83,12 @@ import_ f = Import $ \x -> invoke (blob f x)
 --   The full, somewhat unwieldy, incantation to import a server-side
 --   function @f@ to the client reads:
 --
---       remote $ static (import_ f)
-remote :: forall a m. Remotable m a => StaticPtr (Import m (Remote m a)) -> a
-remote f = remote' (Proxy :: Proxy m) (staticKey f) []
+-- > dispatch $ static (remote f)
+--
+--   Of course, the dispatch may be used as part of the invocation, rather than
+--   definition, of the import instead:
+--
+-- > f' = static (remote f)
+-- > main = runApp $ dispatch f' x0 x1 ...
+dispatch :: forall a m. Remotable m a => StaticPtr (Import m (Remote m a)) -> a
+dispatch f = dispatch' (Proxy :: Proxy m) (staticKey f) []
