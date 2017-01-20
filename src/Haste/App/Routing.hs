@@ -2,14 +2,18 @@
              ScopedTypeVariables,
              TypeFamilies,
              FlexibleInstances,
-             MultiParamTypeClasses #-}
+             MultiParamTypeClasses,
+             FlexibleContexts,
+             DefaultSignatures #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
 module Haste.App.Routing
-  ( Node (..)
+  ( Node (..), NodeEnv (..)
   , Tunnel
   , tunnel
   ) where
+import Control.Monad.Reader
+import Data.Default
 import Data.Proxy
 import Haste.Binary -- for serialization
 import Haste.App.Protocol
@@ -40,7 +44,7 @@ instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
 -- * Defining and calling servers
 
 -- | A server node in the network.
-class MonadConc m => Node (m :: * -> *) where
+class (MonadReader (Env m) m, MonadConc m) => Node (m :: * -> *) where
   -- | The client to which this node is attached. Each node must be attached to
   --   exactly one client. This means that the attachment relation is not
   --   commutative: if @a@ is attached to @b@, then @b@ may send requests to
@@ -50,8 +54,24 @@ class MonadConc m => Node (m :: * -> *) where
   --   a restriction that may or may not be possible to lift in the future.
   type ClientOf m :: * -> *
 
+  -- | Environment type of node. Defaults to @()@.
+  type Env m :: *
+  type Env m = ()
+
+  -- | Initialization for the given node.
+  init :: Proxy m -> CIO (Env m)
+  default init :: Default (Env m) => Proxy m -> CIO (Env m)
+  init _ = return def
+
   -- | The location at which the node can be reached.
   endpoint :: Proxy m -> EndpointConfig
 
   -- | Perform a computation of the given node type.
-  invoke :: m a -> CIO a
+  invoke :: Env m -> m a -> CIO a
+
+-- | Node environment tagged with its type, to avoid having to pass a Proxy
+--   around to identify the type of the node.
+newtype NodeEnv m = NodeEnv {unNE :: Env m}
+
+instance {-# OVERLAPPABLE #-} Monad m => MonadReader () m where
+  ask = return ()

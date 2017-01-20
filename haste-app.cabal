@@ -17,65 +17,13 @@ source-repository head
     type:       git
     location:   https://github.com/valderman/haste-app.git
 
-flag with-build-tool
-  default: True
-  description: Install the build tool.
-
-flag with-library
-  default: False
-  description: Install the libraries.
-
 flag haste
   default: False
   description: Package is being installed for Haste.
 
-executable haste-app
-  hs-source-dirs: src, bin-src
-  main-is: Main.hs
-  default-language: Haskell2010
-  other-modules:
-    AppConfig,
-    Commands,
-    Commands.Build,
-    Commands.Clean,
-    Commands.Configure,
-    Commands.Delete,
-    Commands.Help,
-    Commands.Init,
-    Commands.Install,
-    Commands.Setup,
-    Commands.ToolSetup,
-    Config,
-    Environment,
-    Haste.App.Config,
-    Haste.App.Protocol.Types,
-    Haste.App.Standalone.Embed,
-    Logging,
-    Options,
-    Paths_haste_app,
-    ToolInstallers
-  if flag(haste) || !flag(with-build-tool)
-    buildable: False
-  else
-    build-depends:
-      aeson            >= 1.0   && < 1.2,
-      base             >= 4.8   && < 4.9,
-      bytestring       >= 0.9   && < 0.11,
-      data-embed       >= 0.1   && < 0.2,
-      directory        >= 1.2   && < 1.3,
-      filepath         >= 1.4   && < 1.5,
-      network-info     >= 0.2   && < 0.3,
-      shellmate        >= 0.3.4 && < 0.4,
-      shellmate-extras >= 0.3.4 && < 0.4,
-      temporary        >= 1.2   && < 1.3,
-      text             >= 1.2   && < 1.3,
-      vector           >= 0.10  && < 0.13
-
 library
   exposed-modules:
-    Haste.App,
-    Haste.App.Simple,
-    Haste.App.Standalone
+    Haste.App
   other-modules:
     Haste.App.Client,
     Haste.App.Config,
@@ -100,35 +48,26 @@ library
     FlexibleContexts,
     ConstraintKinds
 
-  if !flag(with-library)
-    buildable: False
-  else
+  build-depends:
+    base         >=4.8 && <4.9,
+    transformers >=0.4 && <0.6,
+    haste-lib    >=0.6 && <0.7,
+    haste-prim   >=0.6 && <0.7,
+    containers   >=0.5 && <0.6
+  if !flag(haste)
     build-depends:
-      base         >=4.8 && <4.9,
-      transformers >=0.4 && <0.6,
-      haste-lib    >=0.6 && <0.7,
-      haste-prim   >=0.6 && <0.7,
-      containers   >=0.5 && <0.6
-    if !flag(haste)
-      other-modules:
-        Haste.App.Standalone.Config,
-        Haste.App.Standalone.Embed,
-        Haste.App.Standalone.Server
-      build-depends:
-        bytestring     >=0.10 && <0.11,
-        data-embed     >=0.1  && <0.2,
-        filepath       >=1.4  && <1.5,
-        directory      >=1.2  && <1.3,
-        http-types     >=0.9  && <0.10,
-        network-info   >=0.2  && <0.3,
-        temporary      >=1.2  && <1.3,
-        text           >=1.2  && <1.3,
-        utf8-string    >=1.0  && <1.1,
-        websockets     >=0.8  && <0.10,
-        wai            >=3.2  && <3.3,
-        wai-websockets >=3.0  && <3.1,
-        warp           >=3.2  && <3.3,
-        warp-tls       >=3.2  && <3.3
+      bytestring     >=0.10 && <0.11,
+      filepath       >=1.4  && <1.5,
+      data-default   >=0.7  && <0.8,
+      http-types     >=0.9  && <0.10,
+      mtl            >=2.2  && <3,
+      text           >=1.2  && <1.3,
+      utf8-string    >=1.0  && <1.1,
+      websockets     >=0.8  && <0.10,
+      wai            >=3.2  && <3.3,
+      wai-websockets >=3.0  && <3.1,
+      warp           >=3.2  && <3.3,
+      warp-tls       >=3.2  && <3.3
   hs-source-dirs:
     src
   ghc-options:

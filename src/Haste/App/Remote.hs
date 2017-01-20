@@ -12,9 +12,9 @@ import Data.Typeable
 import GHC.StaticPtr
 import Haste.App.Client
 import Haste.App.Protocol
-import Haste.App.Routing
+import Haste.App.Routing as Routing
 
-newtype Import (m :: * -> *) a = Import ([Blob] -> CIO Blob)
+newtype Import (m :: * -> *) a = Import (Routing.Env m -> [Blob] -> CIO Blob)
 
 type family Result a where
   Result (a -> b) = Result b
@@ -75,7 +75,7 @@ call pm k xs = do
 --   function of type @[Blob] -> Server Blob@, with the same semantics.
 --   This allows the function to be called remotely via a static pointer.
 remote :: (Node m, Callback m a) => a -> Import m a
-remote f = Import $ \x -> invoke (blob f x)
+remote f = Import $ \env xs -> invoke env (blob f xs)
 
 -- | Turn a static pointer to a serializified function into a client-side
 --   function which, when fully applied, is executed on the server.

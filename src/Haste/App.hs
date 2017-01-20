@@ -3,8 +3,8 @@ module Haste.App
   ( EndpointConfig (..), Endpoint (..), Node (..)
   , MonadConc (..), MonadIO (..)
   , Callback, Remotable, Remote, RunsOn, remote, dispatch, annotate
-  , Client, Server, ServerException (..), Proxy (..)
-  , runApp, invokeServer, reconnect, onDisconnect, onReconnect
+  , Client, Server, ServerException (..), Proxy (..), NodeConfig
+  , runApp, start, invokeServer, reconnect, onDisconnect, onReconnect
   , using
   ) where
 import Control.Monad.IO.Class
@@ -24,9 +24,31 @@ import Data.List
 import Unsafe.Coerce
 import Haste.Prim
 import Data.ByteString.Lazy.UTF8
+import System.IO
 #endif
 
 import GHC.StaticPtr
+
+-- | Start a server of the given node when this server binary starts.
+start :: Node m => Proxy m -> NodeConfig
+start p =
+  case endpoint p of
+    Static e          -> startWith e p
+    Configurable name -> DynNode name $ unS . flip startWith p
+  where
+    unS (StaticNode m) = m
+    unS _              = error "impossible"
+
+-- | Like 'start', but with start the server at the specified endpoint.
+startWith :: forall m. Node m => Endpoint -> Proxy m -> NodeConfig
+startWith ep p = StaticNode $ do
+  case ep of
+    Endpoint _ port tls -> do
+      env <- Haste.App.Routing.init p
+      -- TODO: adapt this part so it works for client-side nodes as well
+      liftIO $ serverLoop (NodeEnv env :: NodeEnv m) port tls
+    _ -> do
+      return ()
 
 -- | Run a Haste.App application. On the client side, a thread is forked off
 --   to run the client part in isolation.
@@ -36,15 +58,18 @@ import GHC.StaticPtr
 --   handler for each. However, it is perfectly possible to build a single
 --   server-side binary to handle *all* endpoints, and run that binary on
 --   multiple machines.
-runApp :: [EndpointConfig] -> Client () -> IO ()
+runApp :: [NodeConfig] -> Client () -> IO ()
 #ifdef __HASTE__
 runApp _ = concurrent . fork . runClient
 #else
-runApp eps _ = mapM_ (forkIO . uncurry serverLoop) ports >> eternalSlumber
+runApp eps _ = mapM_ (forkIO . concurrent . startNode) eps >> zzz
   where
-    eternalSlumber = threadDelay (30*60*1000000) >> eternalSlumber
-    ports = snub [(port, tls) | Endpoint _ port tls <- map resolveEndpoint eps]
-    snub = map head . group . sort
+    zzz = threadDelay (30*60*1000000) >> zzz
+    startNode (StaticNode m)   = m
+    startNode (DynNode name _) = liftIO $ hPutStrLn stderr $ concat
+      [ "WARNING: no configuration for dynamic endpoint `", name, "', "
+      , "so not starting it!"
+      ]
 #endif
 
 -- | A server type, providing the base for more advanced, custom servers.
@@ -80,7 +105,7 @@ annotate = return ()
 -- > example = do
 -- >   name <- prompt "What's your name?"
 -- >   age <- prompt "What's your age?"
--- >   using (name, age) $ static (import $ \(name, age) -> do
+-- >   using (name, age) $ static (remote $ \(name, age) -> do
 -- >       annotate :: RunsOn Server
 -- >       JSString.putStrLn (JSString.concat ["name is ", age, " years old"])
 -- >     )

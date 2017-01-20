@@ -1,6 +1,7 @@
 -- | Types for the Haste.App protocol.
 module Haste.App.Protocol.Types where
 import Data.Int
+import Haste.Concurrent (CIO)
 
 type Nonce = Int32
 
@@ -60,3 +61,8 @@ data EndpointConfig =
   --     };
   | Configurable {endpointName :: !String}
     deriving Show
+
+-- | A server node startup configuration.
+data NodeConfig
+  = StaticNode (CIO ())
+  | DynNode String (Endpoint -> CIO ())
