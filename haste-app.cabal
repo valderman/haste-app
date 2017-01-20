@@ -66,8 +66,7 @@ library
       websockets     >=0.8  && <0.10,
       wai            >=3.2  && <3.3,
       wai-websockets >=3.0  && <3.1,
-      warp           >=3.2  && <3.3,
-      warp-tls       >=3.2  && <3.3
+      warp           >=3.2  && <3.3
   hs-source-dirs:
     src
   ghc-options:

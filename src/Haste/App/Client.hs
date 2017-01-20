@@ -203,10 +203,7 @@ reconnect ep = do
       _ -> do
         return False
   where
-    proto ep
-      | isJust (endpointTLS ep) = "wss://"
-      | otherwise               = "ws://"
-    url = JSS.pack $ concat [proto ep, endpointHost ep, ":", show (endpointPort ep)]
+    url = JSS.pack $ concat ["wss://", endpointHost ep, ":", show (endpointPort ep)]
 
     cfg rmr = noHandlers
       { wsOpenURL   = url

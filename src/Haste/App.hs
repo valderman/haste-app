@@ -43,10 +43,10 @@ start p =
 startWith :: forall m. Node m => Endpoint -> Proxy m -> NodeConfig
 startWith ep p = StaticNode $ do
   case ep of
-    Endpoint _ port tls -> do
+    Endpoint _ port -> do
       env <- Haste.App.Routing.init p
       -- TODO: adapt this part so it works for client-side nodes as well
-      liftIO $ serverLoop (NodeEnv env :: NodeEnv m) port tls
+      liftIO $ serverLoop (NodeEnv env :: NodeEnv m) port
     _ -> do
       return ()
 

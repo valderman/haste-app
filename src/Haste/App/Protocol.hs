@@ -13,10 +13,7 @@ import qualified Haste.Foreign as HF
 import Haste.App.Protocol.Types
 
 instance HF.FromAny Endpoint where
-  fromAny o = do
-    hasTls <- HF.get o "tls"
-    let tls = if hasTls then Just (TLSConfig "" "") else Nothing
-    Endpoint <$> HF.get o "host" <*> HF.get o "port" <*> pure tls
+  fromAny o = Endpoint <$> HF.get o "host" <*> HF.get o "port"
 
 -- | A method call to the server.
 data ServerCall = ServerCall
@@ -63,9 +60,5 @@ instance Binary ServerException where
   put (ServerException e) = putWord8 2 >> put e
 
 instance Binary Endpoint where
-  get = Endpoint <$> get <*> get <*> get
-  put (Endpoint host port tls) = put host >> put port >> put tls
-
-instance Binary TLSConfig where
-  get = TLSConfig <$> get <*> get
-  put (TLSConfig cert key) = put cert >> put key
+  get = Endpoint <$> get <*> get
+  put (Endpoint host port) = put host >> put port

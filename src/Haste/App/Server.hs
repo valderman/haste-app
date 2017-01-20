@@ -19,7 +19,6 @@ import Network.HTTP.Types
 import Network.Wai
 import Network.Wai.Handler.Warp as W
 import Network.Wai.Handler.Warp.Internal as W (settingsPort)
-import Network.Wai.Handler.WarpTLS
 import Network.Wai.Handler.WebSockets
 
 unsafeFromBlob :: Blob -> BSL.ByteString
@@ -29,12 +28,8 @@ unsafeToBlobData :: BSL.ByteString -> BlobData
 unsafeToBlobData = unsafeCoerce
 
 -- | Run the server event loop for a single endpoint.
-serverLoop :: NodeEnv m -> Int -> Maybe TLSConfig -> IO ()
-serverLoop env port mtls
-  | Just (TLSConfig cert key) <- mtls = do
-    runTLS (tlsSettings cert key) (W.defaultSettings {W.settingsPort = port}) $ do
-      websocketsOr defaultConnectionOptions handleWS handleHttp
-  | otherwise = do
+serverLoop :: NodeEnv m -> Int -> IO ()
+serverLoop env port = do
     run port $ websocketsOr defaultConnectionOptions handleWS handleHttp
   where
     handleWS = acceptRequest >=> clientLoop
