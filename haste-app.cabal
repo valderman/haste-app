@@ -26,7 +26,6 @@ library
     Haste.App
   other-modules:
     Haste.App.Client,
-    Haste.App.Config,
     Haste.App.Protocol,
     Haste.App.Protocol.Types,
     Haste.App.Remote,

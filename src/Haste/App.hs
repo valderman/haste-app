@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
 module Haste.App
-  ( EndpointConfig (..), Endpoint (..), Node (..)
+  ( Endpoint (..), Node (..)
   , MonadConc (..), MonadIO (..)
   , Callback, Remotable, Remote, RunsOn, remote, dispatch, annotate
   , Client, Server, ServerException (..), Proxy (..), NodeConfig
@@ -12,7 +12,6 @@ import Data.Proxy
 import Haste.Binary
 import Haste.App.Remote
 import Haste.App.Client
-import Haste.App.Config
 import Haste.App.Protocol
 import Haste.App.Routing
 import Haste.Concurrent (CIO, concurrent, fork)
@@ -30,19 +29,9 @@ import System.IO
 import GHC.StaticPtr
 
 -- | Start a server of the given node when this server binary starts.
-start :: Node m => Proxy m -> NodeConfig
-start p =
+start :: forall m. Node m => Proxy m -> NodeConfig
+start p = do
   case endpoint p of
-    Static e          -> startWith e p
-    Configurable name -> DynNode name $ unS . flip startWith p
-  where
-    unS (StaticNode m) = m
-    unS _              = error "impossible"
-
--- | Like 'start', but with start the server at the specified endpoint.
-startWith :: forall m. Node m => Endpoint -> Proxy m -> NodeConfig
-startWith ep p = StaticNode $ do
-  case ep of
     Endpoint _ port -> do
       env <- Haste.App.Routing.init p
       -- TODO: adapt this part so it works for client-side nodes as well
@@ -62,14 +51,8 @@ runApp :: [NodeConfig] -> Client () -> IO ()
 #ifdef __HASTE__
 runApp _ = concurrent . fork . runClient
 #else
-runApp eps _ = mapM_ (forkIO . concurrent . startNode) eps >> zzz
-  where
-    zzz = threadDelay (30*60*1000000) >> zzz
-    startNode (StaticNode m)   = m
-    startNode (DynNode name _) = liftIO $ hPutStrLn stderr $ concat
-      [ "WARNING: no configuration for dynamic endpoint `", name, "', "
-      , "so not starting it!"
-      ]
+runApp eps _ = mapM_ (forkIO . concurrent) eps >> zzz
+  where zzz = threadDelay (30*60*1000000) >> zzz
 #endif
 
 -- | A server type, providing the base for more advanced, custom servers.

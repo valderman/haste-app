@@ -50,7 +50,7 @@ handlePacket env c msg = do
     _                                    -> error "invalid server call"
 
 handleHop :: Connection -> Endpoint -> Blob -> IO ()
-handleHop c (Endpoint host port _) packet = do
+handleHop c (Endpoint host port) packet = do
   WS.runClient host port "/" $ \ c' -> do
     sendBinaryData c' $ unsafeFromBlob packet
     reply <- receiveData c'

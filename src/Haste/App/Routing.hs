@@ -17,7 +17,6 @@ import Data.Default
 import Data.Proxy
 import Haste.Binary -- for serialization
 import Haste.App.Protocol
-import Haste.App.Config
 import Haste.Concurrent (CIO)
 
 -- | Nest a server call in zero or more server hop packets, as directed by the
@@ -38,7 +37,7 @@ instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
          Tunnel client server where
   tunnel cp sp call = tunnel cp sp' $ ServerHop ep (encode call)
     where
-      ep = resolveEndpoint $ endpoint sp
+      ep = endpoint sp
       sp' = Proxy :: Proxy (ClientOf server)
 
 -- * Defining and calling servers
@@ -64,7 +63,7 @@ class (MonadReader (Env m) m, MonadConc m) => Node (m :: * -> *) where
   init _ = return def
 
   -- | The location at which the node can be reached.
-  endpoint :: Proxy m -> EndpointConfig
+  endpoint :: Proxy m -> Endpoint
 
   -- | Perform a computation of the given node type.
   invoke :: Env m -> m a -> CIO a

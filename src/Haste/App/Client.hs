@@ -10,7 +10,6 @@ import Haste.Binary hiding (get)
 import Haste.Concurrent
 import Haste.WebSockets
 import Haste.App.Protocol
-import Haste.App.Config (resolveEndpoint)
 import qualified Haste.JSString as JSS
 
 -- For default onDisconnect handler
