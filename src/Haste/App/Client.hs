@@ -6,7 +6,8 @@ import Control.Monad.IO.Class
 import Data.Maybe (isJust)
 import Data.IORef
 import qualified Data.Map.Strict as Map
-import Haste.Binary hiding (get)
+import Haste.Serialize
+import Haste.JSON
 import Haste.Concurrent
 import Haste.WebSockets
 import Haste.App.Protocol
@@ -22,8 +23,8 @@ import Haste.Events (MonadEvent (..))
 
 data Env = Env
   { nonceSupply       :: IORef Nonce
-  , resultMap         :: IORef (Map.Map Nonce (MVar Blob))
-  , connectionMap     :: IORef (Map.Map Endpoint (Either Barrier (WebSocket Blob)))
+  , resultMap         :: IORef (Map.Map Nonce (MVar JSON))
+  , connectionMap     :: IORef (Map.Map Endpoint (Either Barrier (WebSocket JSS.JSString)))
   , disconnectHandler :: IORef (Endpoint -> Client ())
   , reconnectHandler  :: IORef (Endpoint -> Client ())
   }
@@ -155,7 +156,7 @@ update ref f = Client $ \env -> do
   liftIO $ atomicModifyIORef' (ref env) f
 
 -- | Create a new nonce and corresponding result MVar.
-newResult :: Client (Nonce, MVar Blob)
+newResult :: Client (Nonce, MVar JSON)
 newResult = Client $ \env -> liftIO $ do
   v <- newEmptyMVar
   n <- atomicModifyIORef' (nonceSupply env) (\n -> (n+1, n))
@@ -210,39 +211,42 @@ reconnect ep = do
       }
           
     handler resmapref _ msg = do
-      msg' <- getBlobData msg
       join . liftIO $ atomicModifyIORef' resmapref $ \m ->
-        case decode msg' of
+        case decodeJSON msg >>= fromJSON of
           Right (ServerReply nonce r)
-            | Just v <- Map.lookup nonce m -> (Map.delete nonce m, putMVar v r)
-            | otherwise                    -> (m, error "Bad nonce!")
-          _ | Right e <- decode msg'       -> (m, throw (e :: ServerException))
-            | otherwise                    -> (m, error "Bad server reply!")
+            | Just v <- Map.lookup nonce m ->
+                (Map.delete nonce m, putMVar v r)
+            | otherwise ->
+                (m, error "Bad nonce!")
+          _ | Right e <- decodeJSON msg >>= fromJSON ->
+                (m, throw (e :: ServerException))
+            | otherwise ->
+                (m, error "Bad server reply!")
 
 -- | Send a blob to an endpoint over a web socket. If there is no open web
 --   socket to the given endpoint, we open a new one. If a new connection can't
 --   be opened, retry until it succeeds.
-sendOverWS :: Endpoint -> Blob -> Client ()
-sendOverWS ep blob = do
+sendOverWS :: Endpoint -> JSS.JSString -> Client ()
+sendOverWS ep json = do
   mws <- Map.lookup ep <$> get connectionMap
   case mws of
     -- If we found a WebSocket, we attempt to make a call.
     Just (Right ws) -> do
-      success <- liftCIO $ wsSend ws blob
-      unless success $ handleConnectionFailure ep blob (Just ws)
+      success <- liftCIO $ wsSend ws json
+      unless success $ handleConnectionFailure ep json (Just ws)
 
     -- If we found a barrier, wait for it to open and then retry.
     Just (Left barrier) -> do
       await barrier
-      sendOverWS ep blob
+      sendOverWS ep json
 
     -- If we found nothing, the endpoint hasn't previously been connected, so
     -- try to connect first.
     _ -> do
       success <- reconnect ep
       if success
-        then sendOverWS ep blob
-        else handleConnectionFailure ep blob Nothing
+        then sendOverWS ep json
+        else handleConnectionFailure ep json Nothing
 
 -- | Call the disconnection handler on the given endpoint, wait until
 --   reconnect, and then retry the failed send.
@@ -250,8 +254,8 @@ sendOverWS ep blob = do
 --   The last argument gives the previous socket for the endpoint, if any.
 --   This is used to determine whether someone else has already handled the
 --   failure by opening a new one and inserting it into the endpoint map.
-handleConnectionFailure :: Endpoint -> Blob -> Maybe (WebSocket Blob) -> Client ()
-handleConnectionFailure ep blob mws = do
+handleConnectionFailure :: Endpoint -> JSS.JSString -> Maybe (WebSocket JSS.JSString) -> Client ()
+handleConnectionFailure ep json mws = do
   -- If the call fails, we must check if we're the first to detect failure.
   -- If we're the first to detect failure (that is, the socket is still
   -- there, and it's the same socket so it hasn't been reconnected while we
@@ -270,4 +274,4 @@ handleConnectionFailure ep blob mws = do
     disconnect <- get disconnectHandler
     disconnect ep
   await bar
-  sendOverWS ep blob
+  sendOverWS ep json

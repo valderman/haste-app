@@ -15,9 +15,11 @@ module Haste.App.Routing
 import Control.Monad.Reader
 import Data.Default
 import Data.Proxy
-import Haste.Binary -- for serialization
+import Haste.Serialize -- for serialization
+import Haste.JSON
 import Haste.App.Protocol
 import Haste.Concurrent (CIO)
+import Haste (JSString)
 
 -- | Nest a server call in zero or more server hop packets, as directed by the
 --   given path.
@@ -25,7 +27,7 @@ class Tunnel (client :: * -> *) (server :: * -> *) where
   tunnel :: Proxy client -- ^ Client to tunnel a path from
          -> Proxy server -- ^ Server to tunnel a path to
          -> ServerCall   -- ^ Server call to route
-         -> (Endpoint, Blob)
+         -> (Endpoint, JSString)
 
 -- | Base case: client and server are one and the same.
 instance Tunnel client client where
@@ -35,7 +37,7 @@ instance Tunnel client client where
 -- | Inductive case: the current node is attached to the next node in the path.
 instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
          Tunnel client server where
-  tunnel cp sp call = tunnel cp sp' $ ServerHop ep (encode call)
+  tunnel cp sp call = tunnel cp sp' $ ServerHop ep (encodeJSON $ toJSON call)
     where
       ep = endpoint sp
       sp' = Proxy :: Proxy (ClientOf server)
@@ -43,7 +45,7 @@ instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
 -- * Defining and calling servers
 
 -- | A server node in the network.
-class (MonadReader (Env m) m, MonadConc m) => Node (m :: * -> *) where
+class MonadReader (Env m) m => Node (m :: * -> *) where
   -- | The client to which this node is attached. Each node must be attached to
   --   exactly one client. This means that the attachment relation is not
   --   commutative: if @a@ is attached to @b@, then @b@ may send requests to

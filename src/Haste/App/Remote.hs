@@ -5,7 +5,8 @@
              FlexibleContexts,
              UndecidableInstances #-}
 module Haste.App.Remote where
-import Haste.Binary
+import Haste.Serialize
+import Haste.JSON
 import Haste.Concurrent
 
 import Data.Typeable
@@ -14,7 +15,7 @@ import Haste.App.Client
 import Haste.App.Protocol
 import Haste.App.Routing as Routing
 
-newtype Import (m :: * -> *) a = Import (Routing.Env m -> [Blob] -> CIO Blob)
+newtype Import (m :: * -> *) a = Import (Routing.Env m -> [JSON] -> CIO JSON)
 
 type family Result a where
   Result (a -> b) = Result b
@@ -29,36 +30,36 @@ type family Remote m a where
 class Node m => Remotable m a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
-  dispatch' :: Proxy m -> StaticKey -> [Blob] -> a
+  dispatch' :: Proxy m -> StaticKey -> [JSON] -> a
 
-instance (Binary a, Remotable m b) => Remotable m (a -> b) where
-  dispatch' pm k xs x = dispatch' pm k (encode x : xs)
+instance (Serialize a, Remotable m b) => Remotable m (a -> b) where
+  dispatch' pm k xs x = dispatch' pm k (toJSON x : xs)
 
-instance forall m a. (Tunnel Client (ClientOf m), Node m, Binary a)
+instance forall m a. (Tunnel Client (ClientOf m), Node m, Serialize a)
          => Remotable m (Client a) where
   dispatch' pm k xs = do
-    Right x <- decodeBlob =<< call pm k (reverse xs)
+    Right x <- fromJSON <$> call pm k (reverse xs)
     return x
 
 -- | A function that may act as a server-side callback. That is, one where all
 --   arguments and return values are serializable.
-class (Result a ~ m, MonadConc m) => Callback m a where
+class (Result a ~ m, Monad m) => Callback m a where
   -- | Serializify a function so it may be called remotely.
-  blob :: a -> [Blob] -> m Blob
+  blob :: a -> [JSON] -> m JSON
 
-instance (Binary a, Callback m b) => Callback m (a -> b) where
-  blob f (x:xs) = do
-    Right x' <- decodeBlob x
-    blob (f x') xs
+instance (Serialize a, Callback m b) => Callback m (a -> b) where
+  blob f (x:xs) =
+    case fromJSON x of
+      Right x' -> blob (f x') xs
   blob _ _ = error "too few arguments to remote function"
 
-instance (Result (m a) ~ m, MonadConc m, Binary a) => Callback m (m a) where
-  blob m _ = fmap encode m
+instance (Result (m a) ~ m, Monad m, Serialize a) => Callback m (m a) where
+  blob m _ = fmap toJSON m
 
 -- | Invoke a remote function: send the RPC call over the network and wait for
 --   the response to get back.
 call :: Tunnel Client server
-     => Proxy (server :: * -> *) -> StaticKey -> [Blob] -> Client Blob
+     => Proxy (server :: * -> *) -> StaticKey -> [JSON] -> Client JSON
 call pm k xs = do
     (n, v) <- newResult
     uncurry sendOverWS $ mkPacket n
@@ -72,7 +73,7 @@ call pm k xs = do
         }
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
---   function of type @[Blob] -> Server Blob@, with the same semantics.
+--   function of type @[JSON] -> Server JSON@, with the same semantics.
 --   This allows the function to be called remotely via a static pointer.
 remote :: (Node m, Callback m a) => a -> Import m a
 remote f = Import $ \env xs -> invoke env (blob f xs)

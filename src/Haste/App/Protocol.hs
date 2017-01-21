@@ -8,9 +8,14 @@ import Control.Exception
 import Control.Monad
 import Data.Typeable
 import GHC.StaticPtr
-import Haste.Binary
+import Haste.Serialize
+import Haste.JSON
 import qualified Haste.Foreign as HF
 import Haste.App.Protocol.Types
+import GHC.Fingerprint.Type
+import Data.Bits
+import Data.Word
+import Haste (JSString)
 
 instance HF.FromAny Endpoint where
   fromAny o = Endpoint <$> HF.get o "host" <*> HF.get o "port"
@@ -19,46 +24,67 @@ instance HF.FromAny Endpoint where
 data ServerCall = ServerCall
   { scNonce  :: !Nonce
   , scMethod :: !StaticKey
-  , scArgs   :: ![Blob]
+  , scArgs   :: ![JSON]
   } | ServerHop
   { shEndpoint :: !Endpoint
-  , shPacket   :: !Blob
+  , shPacket   :: !JSString
   }
 
 -- | A reply to a ServerCall.
 data ServerReply = ServerReply
   { srNonce  :: !Nonce
-  , srResult :: !Blob
+  , srResult :: !JSON
   }
 
 -- | Throw a server exception to the client.
 data ServerException = ServerException !String deriving (Typeable, Show)
 instance Exception ServerException
 
-instance Binary ServerCall where
-  get = do
-    n <- getWord8
-    case n of
-      0 -> ServerCall <$> get <*> get <*> get
-      1 -> ServerHop <$> get <*> get
-      _ -> fail $ "No such ServerCall constructor: " ++ show n
-  put (ServerCall n c as) = putWord8 0 >> put n >> put c >> put as
-  put (ServerHop ep p)    = putWord8 1 >> put ep >> put p
+instance Serialize ServerCall where
+  parseJSON x = do
+    tag <- x .: "tag"
+    case tag :: JSString of
+      "call" -> ServerCall <$> x .: "nonce" <*> x .: "method" <*> x .: "args"
+      "hop"  -> ServerHop <$> x .: "endpoint" <*> x .: "packet"
+      _      -> fail $ "No such ServerCall constructor: " ++ show tag
+  toJSON (ServerCall n c as) = Dict
+    [ ("tag", "call")
+    , ("nonce", toJSON n)
+    , ("method", toJSON c)
+    , ("args", toJSON as)
+    ]
+  toJSON (ServerHop ep p) = Dict
+    [ ("tag", "hop")
+    , ("endpoint", toJSON ep)
+    , ("packet", toJSON p)
+    ]
 
-instance Binary ServerReply where
-  get = do
-    n <- getWord8
-    unless (n == 1) $ fail "Wrong magic byte for ServerReply"
-    ServerReply <$> get <*> get
-  put (ServerReply n r) = putWord8 1 >> put n >> put r
+instance Serialize ServerReply where
+  parseJSON x = ServerReply <$> x .: "nonce" <*> x .: "result"
+  toJSON (ServerReply n r) = Dict [("nonce", toJSON n), ("result", r)]
 
-instance Binary ServerException where
-  get = do
-    n <- getWord8
-    unless (n == 2) $ fail "Wrong magic byte for ServerException"
-    ServerException <$> get
-  put (ServerException e) = putWord8 2 >> put e
+instance Serialize ServerException where
+  parseJSON x = ServerException <$> parseJSON x
+  toJSON (ServerException e) = toJSON e
 
-instance Binary Endpoint where
-  get = Endpoint <$> get <*> get
-  put (Endpoint host port) = put host >> put port
+instance Serialize Endpoint where
+  parseJSON x = Endpoint <$> x .: "host" <*> x .: "port"
+  toJSON (Endpoint h p) = Dict [("host", toJSON h), ("port", toJSON p)]
+
+instance Serialize Word64 where
+  parseJSON x = do
+    lo <- x .: "lo" :: Parser Double
+    hi <- x .: "hi" :: Parser Double
+    return $ round lo .|. shiftL (round hi) 32
+  toJSON x = Dict
+    [ ("lo", toJSON (fromIntegral x :: Double))
+    , ("hi", toJSON (fromIntegral (shiftR x 32) :: Double))
+    ]
+
+instance Serialize Fingerprint where
+  parseJSON x = Fingerprint <$> x .: "lo" <*> x .: "hi"
+  toJSON (Fingerprint lo hi) = Dict
+    [ ("lo", toJSON lo)
+    , ("hi", toJSON hi)
+    ]
+  

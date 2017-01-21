@@ -9,12 +9,12 @@ module Haste.App
   ) where
 import Control.Monad.IO.Class
 import Data.Proxy
-import Haste.Binary
+import Haste.Serialize
 import Haste.App.Remote
 import Haste.App.Client
 import Haste.App.Protocol
 import Haste.App.Routing
-import Haste.Concurrent (CIO, concurrent, fork)
+import Haste.Concurrent (MonadConc, CIO, concurrent, fork)
 
 #ifndef __HASTE__
 import Haste.App.Server
@@ -30,6 +30,9 @@ import GHC.StaticPtr
 
 -- | Start a server of the given node when this server binary starts.
 start :: forall m. Node m => Proxy m -> NodeConfig
+#ifdef __HASTE__
+start _ = pure ()
+#else
 start p = do
   case endpoint p of
     Endpoint _ port -> do
@@ -38,6 +41,7 @@ start p = do
       liftIO $ serverLoop (NodeEnv env :: NodeEnv m) port
     _ -> do
       return ()
+#endif
 
 -- | Run a Haste.App application. On the client side, a thread is forked off
 --   to run the client part in isolation.
@@ -92,6 +96,6 @@ annotate = return ()
 -- >       annotate :: RunsOn Server
 -- >       JSString.putStrLn (JSString.concat ["name is ", age, " years old"])
 -- >     )
-using :: forall m a b. (Binary a, Remotable m b)
+using :: forall m a b. (Serialize a, Remotable m b)
         => a -> (StaticPtr (Import m (a -> Remote m b))) -> b
 using fv f = dispatch f fv
