@@ -77,8 +77,8 @@ instance Serialize Word64 where
     hi <- x .: "hi" :: Parser Double
     return $ round lo .|. shiftL (round hi) 32
   toJSON x = Dict
-    [ ("lo", toJSON (fromIntegral x :: Double))
-    , ("hi", toJSON (fromIntegral (shiftR x 32) :: Double))
+    [ ("lo", toJSON (fromIntegral (x .&. 0xffffffff) :: Double))
+    , ("hi", toJSON (fromIntegral (shiftR x 32 .&. 0xffffffff) :: Double))
     ]
 
 instance Serialize Fingerprint where
