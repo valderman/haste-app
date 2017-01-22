@@ -45,7 +45,7 @@ instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
 -- * Defining and calling servers
 
 -- | A server node in the network.
-class MonadReader (Env m) m => Node (m :: * -> *) where
+class Monad m => Node (m :: * -> *) where
   -- | The client to which this node is attached. Each node must be attached to
   --   exactly one client. This means that the attachment relation is not
   --   commutative: if @a@ is attached to @b@, then @b@ may send requests to
@@ -64,6 +64,11 @@ class MonadReader (Env m) m => Node (m :: * -> *) where
   default init :: Default (Env m) => Proxy m -> CIO (Env m)
   init _ = return def
 
+  -- | Returns the environment of this computation.
+  getEnv :: m (Env m)
+  default getEnv :: m ()
+  getEnv = return ()
+
   -- | The location at which the node can be reached.
   endpoint :: Proxy m -> Endpoint
 
@@ -73,6 +78,3 @@ class MonadReader (Env m) m => Node (m :: * -> *) where
 -- | Node environment tagged with its type, to avoid having to pass a Proxy
 --   around to identify the type of the node.
 newtype NodeEnv m = NodeEnv {unNE :: Env m}
-
-instance {-# OVERLAPPABLE #-} Monad m => MonadReader () m where
-  ask = return ()
