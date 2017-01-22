@@ -1,10 +1,11 @@
-{-# LANGUAGE CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies, CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
 module Haste.App
   ( Endpoint (..), Node (..)
   , MonadConc (..), MonadIO (..)
   , Callback, Remotable, Remote, RunsOn, remote, dispatch, annotate
-  , Client, Server, ServerException (..), Proxy (..), NodeConfig
-  , runApp, start, invokeServer, reconnect, onDisconnect, onReconnect
+  , Client, Server, EnvServer, ServerException (..), Proxy (..), NodeConfig
+  , runApp, start, invokeServer, invokeEnvServer, getEnvServerEnv
+  , reconnect, onDisconnect, onReconnect
   , using
   ) where
 import Control.Monad.IO.Class
@@ -13,8 +14,8 @@ import Haste.Serialize
 import Haste.App.Remote
 import Haste.App.Client
 import Haste.App.Protocol
-import Haste.App.Routing
-import Haste.Concurrent (MonadConc, CIO, concurrent, fork)
+import Haste.App.Routing as R
+import Haste.Concurrent (MonadConc (..), CIO, concurrent)
 
 #ifndef __HASTE__
 import Haste.App.Server
@@ -36,7 +37,7 @@ start _ = pure ()
 start p = do
   case endpoint p of
     Endpoint _ port -> do
-      env <- Haste.App.Routing.init p
+      env <- R.init p
       -- TODO: adapt this part so it works for client-side nodes as well
       liftIO $ serverLoop (NodeEnv env :: NodeEnv m) port
     _ -> do
