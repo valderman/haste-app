@@ -43,7 +43,7 @@ instance forall m a. (Tunnel Client (ClientOf m), Node m, Serialize a)
 
 -- | A function that may act as a server-side callback. That is, one where all
 --   arguments and return values are serializable.
-class (Result a ~ m, Monad m) => Callback m a where
+class (Result a ~ m) => Callback m a where
   -- | Serializify a function so it may be called remotely.
   blob :: a -> [JSON] -> m JSON
 
@@ -53,7 +53,7 @@ instance (Serialize a, Callback m b) => Callback m (a -> b) where
       Right x' -> blob (f x') xs
   blob _ _ = error "too few arguments to remote function"
 
-instance (Result (m a) ~ m, Monad m, Serialize a) => Callback m (m a) where
+instance (Result (m a) ~ m, Functor m, Serialize a) => Callback m (m a) where
   blob m _ = fmap toJSON m
 
 -- | Invoke a remote function: send the RPC call over the network and wait for

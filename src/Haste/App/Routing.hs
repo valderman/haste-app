@@ -46,7 +46,7 @@ instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
 -- * Defining and calling servers
 
 -- | A server node in the network.
-class Monad m => Node (m :: * -> *) where
+class Node (m :: * -> *) where
   -- | The client to which this node is attached. Each node must be attached to
   --   exactly one client. This means that the attachment relation is not
   --   commutative: if @a@ is attached to @b@, then @b@ may send requests to
