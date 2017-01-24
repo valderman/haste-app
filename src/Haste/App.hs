@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeFamilies, CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
 module Haste.App
   ( Endpoint (..), Node (..)
-  , MonadConc (..), MonadIO (..)
+  , MonadConc (..), MonadIO (..), MonadReader (..)
   , Callback, Remotable, Remote, RunsOn, remote, dispatch, annotate
   , Client, Server, EnvServer, ServerException (..), Proxy (..), NodeConfig
-  , runApp, start, invokeServer, invokeEnvServer, getEnvServerEnv
+  , runApp, start, invokeServer, invokeEnvServer
   , reconnect, onDisconnect, onReconnect
   , using
   ) where
@@ -59,12 +59,6 @@ runApp _ = concurrent . fork . runClient
 runApp eps _ = mapM_ (forkIO . concurrent) eps >> zzz
   where zzz = threadDelay (30*60*1000000) >> zzz
 #endif
-
--- | A server type, providing the base for more advanced, custom servers.
---   In order to make a simple single-server application, creating an
---   appropriate instance of 'Node' for 'Server' is all that's needed.
-newtype Server a = Server {invokeServer :: CIO a}
-  deriving (Functor, Applicative, Monad, MonadIO, MonadConc)
 
 -- | Force the type of a monadic computation. Used to annotate inline remote
 --   imports.

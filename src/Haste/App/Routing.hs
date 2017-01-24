@@ -4,14 +4,16 @@
              FlexibleInstances,
              MultiParamTypeClasses,
              FlexibleContexts,
+             GeneralizedNewtypeDeriving,
+             CPP,
              DefaultSignatures #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
 module Haste.App.Routing
-  ( Node (..), NodeEnv (..)
+  ( Node (..), NodeEnv (..), MonadReader (..)
   , Tunnel
   , tunnel
-  , EnvServer, invokeEnvServer, getEnvServerEnv
+  , Server, EnvServer, invokeServer, invokeEnvServer
   ) where
 import Control.Monad.Reader
 import Data.Default
@@ -20,7 +22,15 @@ import Haste.Serialize -- for serialization
 import Haste.JSON
 import Haste.App.Protocol
 import Haste.Concurrent (MonadConc (..), CIO)
-import Haste (JSString)
+import Haste (JSString, fromJSStr)
+import Haste.App.Client (Client) -- for default ClientOf type instance
+
+-- for default Endpoint instance
+import Data.Typeable
+import Data.Hashable
+import Data.Word (Word16)
+import Haste (getLocationHostName)
+import System.IO.Unsafe
 
 -- | Nest a server call in zero or more server hop packets, as directed by the
 --   given path.
@@ -54,11 +64,26 @@ class Node (m :: * -> *) where
   --   The attachments of nodes thus form a tree, rooted at the client.
   --   This is necessitated by the need for paths to be unique and unambiguous,
   --   a restriction that may or may not be possible to lift in the future.
+  --   By default, nodes attach directly to 'Client'.
   type ClientOf m :: * -> *
+  type ClientOf m = Client
 
   -- | Environment type of node. Defaults to @()@.
   type Env m :: *
   type Env m = ()
+
+  -- | The location at which the node can be reached.
+  endpoint :: Proxy m -> Endpoint
+  default endpoint :: Typeable m => Proxy m -> Endpoint
+  endpoint p = unsafePerformIO $ do
+    let w16 = fromIntegral (hash (typeRep p)) :: Word16
+        port = fromIntegral w16 `rem` (65535-1024) + 1024
+#ifdef __HASTE__
+    host <- fromJSStr <$> getLocationHostName
+#else
+    let host = ""
+#endif
+    return $ Endpoint host port
 
   -- | Initialization for the given node.
   init :: Proxy m -> CIO (Env m)
@@ -67,11 +92,8 @@ class Node (m :: * -> *) where
 
   -- | Returns the environment of this computation.
   getEnv :: m (Env m)
-  default getEnv :: (m ~ EnvServer e) => EnvServer e e
-  getEnv = EnvS $ \e -> return e
-
-  -- | The location at which the node can be reached.
-  endpoint :: Proxy m -> Endpoint
+  default getEnv :: MonadReader (Env m) m => m (Env m)
+  getEnv = ask
 
   -- | Perform a computation of the given node type.
   invoke :: Env m -> m a -> CIO a
@@ -82,33 +104,25 @@ class Node (m :: * -> *) where
 --   around to identify the type of the node.
 newtype NodeEnv m = NodeEnv {unNE :: Env m}
 
--- | A server type with an environment.
-newtype EnvServer e a = EnvS {runEnvS :: e -> CIO a}
+-- | A server type, providing the base for more advanced, custom servers.
+--   In order to make a simple single-server application, creating an
+--   appropriate instance of 'Node' for 'Server' is all that's needed.
+newtype Server a = Server {runServer :: CIO a}
+  deriving (Functor, Applicative, Monad, MonadIO, MonadConc)
+
+-- | Invoke an environment-less server computation.
+invokeServer :: env -> Server a -> CIO a
+invokeServer _ = runServer
 
 -- | Invoke a server with an environment. This is the 'invoke' method when
 --   creating 'Node' instances for @EnvServer@.
 invokeEnvServer :: (e ~ Env (EnvServer e)) => e -> EnvServer e a -> CIO a
-invokeEnvServer env = flip runEnvS env
+invokeEnvServer env = runServer . flip runReaderT env . runEnvS
 
-instance Functor (EnvServer e) where
-  fmap f (EnvS m) = EnvS $ \e -> fmap f (m e)
+-- | A server type with an environment.
+newtype EnvServer e a = EnvS {runEnvS :: ReaderT e Server a}
+  deriving (Functor, Applicative, Monad, MonadIO, MonadConc, MonadReader e)
 
-instance Applicative (EnvServer e) where
-  pure = return
-  (<*>) = ap
-
-instance Monad (EnvServer e) where
-  return x = EnvS $ \_ -> return x
-  (EnvS m) >>= f = EnvS $ \e -> m e >>= flip runEnvS e . f
-
-instance MonadIO (EnvServer e) where
-  liftIO m = EnvS $ \_ -> liftIO m
-
-instance MonadConc (EnvServer w) where
-  liftConc m = EnvS $ \_ -> liftConc m
-  fork (EnvS m) = EnvS $ \e -> fork (m e)
-
--- | Get the environment within an @EnvServer@ computation. This is the
---   'getEnv' method when creating 'Node' instances for @EnvServer@.
-getEnvServerEnv :: EnvServer e e
-getEnvServerEnv = EnvS $ \e -> return e
+instance MonadConc (ReaderT e Server) where
+  liftConc = lift . liftConc
+  fork m = lift . fork . runReaderT m =<< ask
