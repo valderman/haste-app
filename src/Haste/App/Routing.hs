@@ -96,8 +96,8 @@ class Node (m :: * -> *) where
   getEnv = ask
 
   -- | Perform a computation of the given node type.
-  invoke :: Env m -> m a -> CIO a
-  default invoke :: (m ~ EnvServer (Env m)) => Env m -> m a -> CIO a
+  invoke :: Env m -> m JSON -> CIO JSON
+  default invoke :: (m ~ EnvServer (Env m)) => Env m -> m JSON -> CIO JSON
   invoke = invokeEnvServer
 
 -- | Node environment tagged with its type, to avoid having to pass a Proxy
