@@ -1,9 +1,10 @@
 {-# LANGUAGE TypeFamilies, CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
 module Haste.App
-  ( Endpoint (..), Node (..)
+  ( module GHC.StaticPtr, module Data.Proxy
+  , Endpoint (..), Node (..)
   , MonadConc (..), MonadIO (..), MonadReader (..)
-  , Callback, Remotable, Remote, RunsOn, remote, dispatch, annotate
-  , Client, Server, EnvServer, ServerException (..), Proxy (..), NodeConfig
+  , Callback, Remotable, Remote, RunsOn, Import, remote, dispatch, annotate
+  , RemotePtr, Client, Server, EnvServer, ServerException (..), NodeConfig
   , runApp, start, invokeServer, invokeEnvServer
   , reconnect, onDisconnect, onReconnect
   , using
@@ -28,6 +29,9 @@ import System.IO
 #endif
 
 import GHC.StaticPtr
+
+-- | A 'StaticPointer' to a remote import.
+type RemotePtr m a = StaticPtr (Import m a)
 
 -- | Start a server of the given node when this server binary starts.
 start :: forall m. Node m => Proxy m -> NodeConfig

@@ -110,6 +110,9 @@ newtype NodeEnv m = NodeEnv {unNE :: Env m}
 newtype Server a = Server {runServer :: CIO a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadConc)
 
+instance MonadReader () Server where
+  ask = return ()
+
 -- | Invoke an environment-less server computation.
 invokeServer :: env -> Server a -> CIO a
 invokeServer _ = runServer
