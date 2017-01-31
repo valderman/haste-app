@@ -6,11 +6,12 @@
              FlexibleContexts,
              GeneralizedNewtypeDeriving,
              CPP,
+             FunctionalDependencies,
              DefaultSignatures #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
 module Haste.App.Routing
-  ( Node (..), NodeEnv (..), MonadReader (..)
+  ( Node (..), NodeEnv (..), MonadReader (..), Mapping (..)
   , Tunnel
   , tunnel
   , Server, EnvServer, invokeServer
@@ -56,6 +57,58 @@ instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
 -- * Defining and calling servers
 
 -- | A server node in the network.
+--   To define a new node @N@, the following must be provided:
+--
+--     * The client node to which @N@ is immediately attached. This may be
+--       omitted if @N@ attaches directly to 'Client'.
+--
+--     * The type of the node's environment. This may be omitted if the node
+--       has no environment, in which case it defaults to @()@.
+--
+--     * A function @endpoint@, which describes how to physically reach
+--       the node; this may be omitted if the node is reachable via WebSockets
+--       on the same host name as the client program is served from.
+--       In this case, the port of the endpoint is determined by the hash of
+--       the node's @TypeRep@.
+--
+--     * A function @init@, which initializes the node's environment and
+--       performs any server-side initialization. This may be omitted if
+--       @Env m@ is an instance of 'Default' and no other server-side setup
+--       is needed.
+--
+--     * A function @getEnv@, which returns the node's environment. This may
+--       be omitted is @N@ is an instance of @MonadReader (Env N)@.
+--
+--     * At least one instance of 'Mapping'. This can be omitted if @N@ is
+--       a case of 'EnvServer'.
+--
+--   Thus, the minimal declaration to create a new node with
+--   some environment @MyEnv@ would be:
+--
+-- > type MyNode = EnvNode MyEnv
+-- > instance Node MyNode where
+-- >   type Env MyNode = MyEnv
+--
+--   If a stateful node is desired rather than one with an environment, this
+--   can be accomplishe using, for instance, @IORef@s:
+--
+-- > type MyNode = EnvNode (IORef MySt)
+-- > instance Node MyNode where
+-- >   type Env MyNode = IORef MySt
+-- >   init _ = liftIO $ newIORef initialState
+--
+--   A stateful node which is not a case of @EnvServer@ requires slightly more
+--   boilerplate:
+--
+-- > newtype MyNode a = MyNode (EnvServer (IORef MySt) a)
+-- >   deriving (Functor, Applicative, Monad, MonadIO, MonadReader (IORef MySt))
+-- > 
+-- > instance Mapping MyNode a where
+-- >   invoke env (MyNode m) = invokeServer env m
+-- > 
+-- > instance Node MyNode where
+-- >   type Env MyNode = IORef MySt
+-- >   init _ = liftIO $ newIORef initialState
 class Node (m :: * -> *) where
   -- | The client to which this node is attached. Each node must be attached to
   --   exactly one client. This means that the attachment relation is not
@@ -95,11 +148,6 @@ class Node (m :: * -> *) where
   default getEnv :: MonadReader (Env m) m => m (Env m)
   getEnv = ask
 
-  -- | Perform a computation of the given node type.
-  invoke :: Env m -> m JSON -> CIO JSON
-  default invoke :: (m ~ EnvServer (Env m)) => Env m -> m JSON -> CIO JSON
-  invoke = invokeServer
-
 -- | Node environment tagged with its type, to avoid having to pass a Proxy
 --   around to identify the type of the node.
 newtype NodeEnv m = NodeEnv {unNE :: Env m}
@@ -121,3 +169,26 @@ newtype EnvServer e a = EnvS {runEnvS :: ReaderT e CIO a}
 instance MonadConc (ReaderT e CIO) where
   liftConc = lift . liftConc
   fork m = lift . fork . runReaderT m =<< ask
+
+-- | A mapping from node return values to Haskell values.
+--   This is useful when making nodes out of e.g. DSLs where the DSL-internal
+--   type is not what the Haskell host program gets back from running it.
+--   One instance of this is @opaleye@, another is @aplite@.
+--
+--   Most nodes will only need a single instance:
+--
+-- > instance Mapping MyNode a where
+-- >   invoke env node = invokeMyNode env node
+--
+--   This instance is already provided for all nodes of type 'EnvServer'.
+class Mapping (m :: * -> *) dom where
+  type Hask m dom
+  type Hask m dom = dom
+
+  -- | Run a DSL computation which returns an @a@ on the DSL level,
+  --   corresponding to @Map m a@ on the Haskell level.
+  invoke :: Env m -> m dom -> CIO (Hask m dom)
+  default invoke :: (m ~ EnvServer (Env m), Hask m dom ~ dom) => Env m -> m dom -> CIO dom
+  invoke = invokeServer
+
+instance (t ~ Env (EnvServer t)) => Mapping (EnvServer t) a

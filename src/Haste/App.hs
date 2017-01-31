@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies, CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
 module Haste.App
   ( module GHC.StaticPtr, module Data.Proxy, module Haste, module Haste.Serialize
-  , Endpoint (..), Node (..), CIO
+  , Endpoint (..), Node (..), CIO, Mapping (..)
   , MonadConc (..), MonadIO (..), MonadReader (..)
   , Callback, Remotable, Remote, RunsOn, Import, remote, dispatch, annotate
   , RemotePtr, Client, Server, EnvServer, ServerException (..), NodeConfig
@@ -27,7 +27,7 @@ import Control.Concurrent (forkIO, threadDelay)
 import GHC.StaticPtr
 
 -- | A 'StaticPointer' to a remote import.
-type RemotePtr m a = StaticPtr (Import m a)
+type RemotePtr m dom = StaticPtr (Import m dom)
 
 -- | Start a server of the given node when this server binary starts.
 start :: forall m. Node m => Proxy m -> NodeConfig
@@ -89,6 +89,11 @@ annotate = return ()
 -- >       annotate :: RunsOn Server
 -- >       JSString.putStrLn (JSString.concat ["name is ", age, " years old"])
 -- >     )
-using :: forall m a b. (Serialize a, Remotable m b)
-        => a -> (StaticPtr (Import m (a -> Remote m b))) -> b
+--using :: forall a dom hask. (Serialize a, Remotable dom hask)
+--        => a -> StaticPtr (Import m dom (Res hask)) -> hask
+using :: forall m dom fv comp.
+         (Mapping m (Res dom), Remotable m (H dom), H dom ~ (fv -> comp))
+      => fv
+      -> StaticPtr (Import m dom)
+      -> comp
 using fv f = dispatch f fv
