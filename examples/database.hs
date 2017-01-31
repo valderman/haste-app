@@ -30,6 +30,28 @@ instance Node Query where
 instance Mapping Query (Column PGText) where
   type Hask Query (Column PGText) = [String] ; invoke = runQ
 
+{-
+-- Generalize Opaleye to Haskell type mapping over arbitrary tables of one
+-- and two columns, instead of the single-column String table implemented
+-- above. Requires UndecidableInstances.
+
+instance ( Default QueryRunner (Column a) (Res a)
+         ) => Mapping Query (Column a) where
+  type Hask Query (Column a) = [Res a]
+  invoke = runQ
+instance ( Default QueryRunner (Column a) (Res a)
+         , Default QueryRunner (Column b) (Res b)
+         ) => Mapping Query (Column a, Column b) where
+  type Hask Query (Column a, Column b) = [(Res a, Res b)]
+  invoke = runQ
+...
+
+-- SQL base types
+type family Res a where
+  Res PGText = String
+  Res PGInt4 = Int
+  ...
+-}
 
 -- Run the thing; query is inline
 main = runApp [start (Proxy :: Proxy Query)] $ do
