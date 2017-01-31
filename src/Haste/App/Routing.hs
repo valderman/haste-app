@@ -13,7 +13,7 @@ module Haste.App.Routing
   ( Node (..), NodeEnv (..), MonadReader (..)
   , Tunnel
   , tunnel
-  , Server, EnvServer, invokeServer, invokeEnvServer
+  , Server, EnvServer, invokeServer
   ) where
 import Control.Monad.Reader
 import Data.Default
@@ -98,7 +98,7 @@ class Node (m :: * -> *) where
   -- | Perform a computation of the given node type.
   invoke :: Env m -> m JSON -> CIO JSON
   default invoke :: (m ~ EnvServer (Env m)) => Env m -> m JSON -> CIO JSON
-  invoke = invokeEnvServer
+  invoke = invokeServer
 
 -- | Node environment tagged with its type, to avoid having to pass a Proxy
 --   around to identify the type of the node.
@@ -107,25 +107,17 @@ newtype NodeEnv m = NodeEnv {unNE :: Env m}
 -- | A server type, providing the base for more advanced, custom servers.
 --   In order to make a simple single-server application, creating an
 --   appropriate instance of 'Node' for 'Server' is all that's needed.
-newtype Server a = Server {runServer :: CIO a}
-  deriving (Functor, Applicative, Monad, MonadIO, MonadConc)
+type Server = EnvServer ()
 
-instance MonadReader () Server where
-  ask = return ()
-
--- | Invoke an environment-less server computation.
-invokeServer :: env -> Server a -> CIO a
-invokeServer _ = runServer
-
--- | Invoke a server with an environment. This is the 'invoke' method when
+-- | Invoke a standard server. This is the 'invoke' method when
 --   creating 'Node' instances for @EnvServer@.
-invokeEnvServer :: (e ~ Env (EnvServer e)) => e -> EnvServer e a -> CIO a
-invokeEnvServer env = runServer . flip runReaderT env . runEnvS
+invokeServer :: e -> EnvServer e a -> CIO a
+invokeServer env = flip runReaderT env . runEnvS
 
 -- | A server type with an environment.
-newtype EnvServer e a = EnvS {runEnvS :: ReaderT e Server a}
+newtype EnvServer e a = EnvS {runEnvS :: ReaderT e CIO a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadConc, MonadReader e)
 
-instance MonadConc (ReaderT e Server) where
+instance MonadConc (ReaderT e CIO) where
   liftConc = lift . liftConc
   fork m = lift . fork . runReaderT m =<< ask

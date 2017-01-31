@@ -1,17 +1,18 @@
 {-# LANGUAGE TypeFamilies, CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
 module Haste.App
-  ( module GHC.StaticPtr, module Data.Proxy
-  , Endpoint (..), Node (..)
+  ( module GHC.StaticPtr, module Data.Proxy, module Haste, module Haste.Serialize
+  , Endpoint (..), Node (..), CIO
   , MonadConc (..), MonadIO (..), MonadReader (..)
   , Callback, Remotable, Remote, RunsOn, Import, remote, dispatch, annotate
   , RemotePtr, Client, Server, EnvServer, ServerException (..), NodeConfig
-  , runApp, start, invokeServer, invokeEnvServer
+  , runApp, start, invokeServer
   , reconnect, onDisconnect, onReconnect
   , using
   ) where
 import Control.Monad.IO.Class
 import Data.Proxy
 import Haste.Serialize
+import Haste
 import Haste.App.Remote
 import Haste.App.Client
 import Haste.App.Protocol
@@ -21,11 +22,6 @@ import Haste.Concurrent (MonadConc (..), CIO, concurrent)
 #ifndef __HASTE__
 import Haste.App.Server
 import Control.Concurrent (forkIO, threadDelay)
-import Data.List
-import Unsafe.Coerce
-import Haste.Prim
-import Data.ByteString.Lazy.UTF8
-import System.IO
 #endif
 
 import GHC.StaticPtr
@@ -44,8 +40,6 @@ start p = do
       env <- R.init p
       -- TODO: adapt this part so it works for client-side nodes as well
       liftIO $ serverLoop (NodeEnv env :: NodeEnv m) port
-    _ -> do
-      return ()
 #endif
 
 -- | Run a Haste.App application. On the client side, a thread is forked off
