@@ -28,10 +28,11 @@ import Haste.App.Client (Client) -- for default ClientOf type instance
 
 -- for default Endpoint instance
 import Data.Typeable
-import Data.Hashable
+import Data.Char
 import Data.Word (Word16)
 import Haste (getLocationHostName)
 import System.IO.Unsafe
+import System.IO (hPutStrLn, stderr)
 
 -- | Nest a server call in zero or more server hop packets, as directed by the
 --   given path.
@@ -129,14 +130,24 @@ class Node (m :: * -> *) where
   endpoint :: Proxy m -> Endpoint
   default endpoint :: Typeable m => Proxy m -> Endpoint
   endpoint p = unsafePerformIO $ do
-    let w16 = fromIntegral (hash (typeRep p)) :: Word16
+    let node = show $ typeRep p
+        w16 = djb2 node
         port = fromIntegral w16 `rem` (65535-1024) + 1024
 #ifdef __HASTE__
     host <- fromJSStr <$> getLocationHostName
 #else
+    hPutStrLn stderr $ "selecting port " ++ show port ++ " for node " ++ node
     let host = ""
 #endif
-    return $ Endpoint host port
+    return $ Endpoint (if "" == host then "localhost" else host) port
+    where
+      -- | DJB2 hash function
+      djb2 :: String -> Word16
+      djb2 = go 5381
+        where
+          go n (c:s) = go (n*33 + (fromIntegral $ ord c)) s
+          go n _     = n
+
 
   -- | Initialization for the given node.
   init :: Proxy m -> CIO (Env m)
