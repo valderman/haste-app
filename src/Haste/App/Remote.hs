@@ -16,6 +16,7 @@ import GHC.StaticPtr
 import Haste.App.Client
 import Haste.App.Protocol
 import Haste.App.Routing as Routing
+import Haste.App.Sandbox
 
 newtype Import (m :: * -> *) dom = Import (Routing.Env m -> [JSON] -> CIO JSON)
 
@@ -60,12 +61,19 @@ instance (Result (m a) ~ m, Mapping m a, Res (m a) ~ a) => Callback m (m a) wher
 
 -- | Invoke a remote function: send the RPC call over the network and wait for
 --   the response to get back.
+{-# WARNING call "TODO: share code between sandbox/websocket endpoints" #-}
 call :: Tunnel Client server
      => Proxy (server :: * -> *) -> StaticKey -> [JSON] -> Client JSON
 call pm k xs = do
-    (n, v) <- newResult
-    uncurry sendOverWS $ mkPacket n
-    liftCIO $ takeMVar v
+    let (ep, _) = mkPacket 0
+    case ep of
+      LocalNode _ -> do
+        n <- getNonce
+        liftCIO $ uncurry (callSandbox n) $ mkPacket n
+      WebSocket{} -> do
+        (n, v) <- newResult
+        uncurry sendOverWS $ mkPacket n
+        liftCIO $ takeMVar v
   where
     mkPacket n =
       tunnel (Proxy :: Proxy Client) pm $ ServerCall
@@ -96,7 +104,7 @@ remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask m (Res dom
 --
 -- > f' = static (remote f)
 -- > main = runApp $ dispatch f' x0 x1 ...
-dispatch :: forall m dom hask. (Remotable m (H dom), Mapping m (Res dom))
+dispatch :: forall m dom. (Remotable m (H dom), Mapping m (Res dom))
          => StaticPtr (Import m dom)
          -> H dom
 dispatch f = dispatch' (Proxy :: Proxy m) (staticKey f) []

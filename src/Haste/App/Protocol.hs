@@ -17,9 +17,6 @@ import Data.Bits
 import Data.Word
 import Haste (JSString)
 
-instance HF.FromAny Endpoint where
-  fromAny o = Endpoint <$> HF.get o "host" <*> HF.get o "port"
-
 -- | A method call to the server.
 data ServerCall = ServerCall
   { scNonce  :: !Nonce
@@ -68,8 +65,14 @@ instance Serialize ServerException where
   toJSON (ServerException e) = toJSON e
 
 instance Serialize Endpoint where
-  parseJSON x = Endpoint <$> x .: "host" <*> x .: "port"
-  toJSON (Endpoint h p) = Dict [("host", toJSON h), ("port", toJSON p)]
+  parseJSON x = do
+    t <- x .: "type"
+    case t :: JSString of
+      "websocket" -> WebSocket <$> x .: "host" <*> x .: "port"
+      "local"     -> LocalNode <$> x .: "name"
+      _           -> fail "unknown endpoint type"
+  toJSON (WebSocket h p)  = Dict [("type", "websocket"), ("host", toJSON h), ("port", toJSON p)]
+  toJSON (LocalNode name) = Dict [("type", "local"), ("name", toJSON name)]
 
 instance Serialize Word64 where
   parseJSON x = do

@@ -1,16 +1,20 @@
 {-# LANGUAGE TypeFamilies, CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Haste.App
   ( module GHC.StaticPtr, module Data.Proxy, module Haste, module Haste.Serialize
+  , module Haste.App.Sandbox
   , Endpoint (..), Node (..), CIO, Mapping (..)
   , MonadConc (..), MonadIO (..), MonadReader (..)
   , Callback, Remotable, Remote, RunsOn, Import, remote, dispatch, annotate
   , RemotePtr, Client, Server, EnvServer, ServerException (..), NodeConfig
   , runApp, start, invokeServer
   , reconnect, onDisconnect, onReconnect
-  , using
+  , using, localNode
   ) where
+import Control.Monad
 import Control.Monad.IO.Class
 import Data.Proxy
+import Data.Typeable
 import Haste.Serialize
 import Haste
 import Haste.App.Remote
@@ -18,6 +22,8 @@ import Haste.App.Client
 import Haste.App.Protocol
 import Haste.App.Routing as R
 import Haste.Concurrent (MonadConc (..), CIO, concurrent)
+import Haste.App.Sandbox hiding (callSandbox, createAppSandbox, isInSandbox)
+import qualified Haste.App.Sandbox as Sbx (createAppSandbox, isInSandbox)
 
 #ifndef __HASTE__
 import Haste.App.Server
@@ -30,16 +36,21 @@ import GHC.StaticPtr
 type RemotePtr dom = StaticPtr (Import (Result dom) dom)
 
 -- | Start a server of the given node when this server binary starts.
-start :: forall m. Node m => Proxy m -> NodeConfig
+start :: forall m. (Perms m, Node m) => Proxy m -> NodeConfig
 #ifdef __HASTE__
-start _ = pure ()
+start p = do
+  case endpoint p of
+    LocalNode _ -> do
+      Sbx.createAppSandbox p
+    _ -> return ()
 #else
 start p = do
   case endpoint p of
-    Endpoint _ port -> do
+    WebSocket _ port -> do
       env <- R.init p
-      -- TODO: adapt this part so it works for client-side nodes as well
       liftIO $ serverLoop (NodeEnv env :: NodeEnv m) port
+    _ -> return ()
+      
 #endif
 
 -- | Run a Haste.App application. On the client side, a thread is forked off
@@ -52,7 +63,11 @@ start p = do
 --   multiple machines.
 runApp :: [NodeConfig] -> Client () -> IO ()
 #ifdef __HASTE__
-runApp _ = concurrent . fork . runClient
+runApp eps m = do
+  inSandbox <- Sbx.isInSandbox
+  concurrent $ do
+    sequence_ eps
+    unless inSandbox $ runClient m
 #else
 runApp eps _ = mapM_ (forkIO . concurrent) eps >> zzz
   where zzz = threadDelay (30*60*1000000) >> zzz
@@ -97,3 +112,8 @@ using :: forall m dom fv comp.
       -> StaticPtr (Import m dom)
       -> comp
 using fv f = dispatch f fv
+
+-- | A local endpoint with a name derived from the fingerprint of the node
+--   type. Guaranteed to be unique for each node.
+localNode :: Typeable (m :: * -> *) => Proxy m -> Endpoint
+localNode = LocalNode . show . typeRepFingerprint . typeRep

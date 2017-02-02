@@ -46,11 +46,13 @@ handlePacket env c msg = do
     _                                    -> error "invalid server call"
 
 handleHop :: Connection -> Endpoint -> JSString -> IO ()
-handleHop c (Endpoint host port) packet = do
+handleHop c (WebSocket host port) packet = do
   WS.runClient host port "/" $ \ c' -> do
     sendTextData c' (fromString $ fromJSStr packet)
     reply <- receiveData c'
     sendTextData c (reply :: BSL.ByteString)
+handleHop _ LocalNode{} _ = do
+  error "hop to local node on server side; what to do here?"
 
 -- | Handle a call to this specific node. Note that the method itself is
 --   executed in the CIO monad by the handler.

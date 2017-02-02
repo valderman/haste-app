@@ -157,11 +157,17 @@ update ref f = Client $ \env -> do
 
 -- | Create a new nonce and corresponding result MVar.
 newResult :: Client (Nonce, MVar JSON)
-newResult = Client $ \env -> liftIO $ do
-  v <- newEmptyMVar
-  n <- atomicModifyIORef' (nonceSupply env) (\n -> (n+1, n))
-  atomicModifyIORef' (resultMap env) (\m -> (Map.insert n v m, ()))
-  return (n, v)
+newResult = do
+  n <- getNonce
+  Client $ \env -> liftIO $ do
+    v <- newEmptyMVar
+    atomicModifyIORef' (resultMap env) (\m -> (Map.insert n v m, ()))
+    return (n, v)
+
+-- | Get a new nonce.
+getNonce :: Client Nonce
+getNonce = Client $ \env -> liftIO $ do
+  atomicModifyIORef' (nonceSupply env) (\n -> (n+1, n))
 
 -- | Perform the given computation whenever a connection is lost.
 --   Note that this handler is responsible for restoring the dropped
@@ -203,7 +209,7 @@ reconnect ep = do
       _ -> do
         return False
   where
-    url = JSS.pack $ concat ["ws://", endpointHost ep, ":", show (endpointPort ep)]
+    url = JSS.pack $ concat ["ws://", wsEndpointHost ep, ":", show (wsEndpointPort ep)]
 
     cfg rmr = noHandlers
       { wsOpenURL   = url

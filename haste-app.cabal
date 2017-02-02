@@ -30,6 +30,8 @@ library
     Haste.App.Protocol.Types,
     Haste.App.Remote,
     Haste.App.Routing,
+    Haste.App.Sandbox,
+    Haste.App.Sandbox.Internal,
     Haste.App.Server,
     Paths_haste_app
   other-extensions:

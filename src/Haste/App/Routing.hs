@@ -14,7 +14,7 @@ module Haste.App.Routing
   ( Node (..), NodeEnv (..), MonadReader (..), Mapping (..)
   , Tunnel
   , tunnel
-  , Server, EnvServer, invokeServer
+  , Server, EnvServer, invokeServer, localEndpoint
   ) where
 import Control.Monad.Reader
 import Data.Default
@@ -139,7 +139,7 @@ class Node (m :: * -> *) where
     hPutStrLn stderr $ "selecting port " ++ show port ++ " for node " ++ node
     let host = ""
 #endif
-    return $ Endpoint (if "" == host then "localhost" else host) port
+    return $ WebSocket (if "" == host then "localhost" else host) port
     where
       -- | DJB2 hash function
       djb2 :: String -> Word16
@@ -172,6 +172,9 @@ type Server = EnvServer ()
 --   creating 'Node' instances for @EnvServer@.
 invokeServer :: e -> EnvServer e a -> CIO a
 invokeServer env = flip runReaderT env . runEnvS
+
+localEndpoint :: forall m. Typeable m => Proxy m -> Endpoint
+localEndpoint = LocalNode . show . typeRepFingerprint . typeRep
 
 -- | A server type with an environment.
 newtype EnvServer e a = EnvS {runEnvS :: ReaderT e CIO a}
