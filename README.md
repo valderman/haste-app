@@ -70,10 +70,10 @@ TODO
 ----
 * Generalise `dispatch` to import functions to any node, not just `Client`.
 * Specify which endpoints to start using annotations.
-* Add REST service local call endpoint constructor and EDSL for describing how
-  to translate from function calls to such services.
 * Add long-polling simulation of server-triggered events?
 * HTTPS support for files served using Haste.App.Standalone.
+* Code + common abstraction between local and remote calls. (Type class?)
+* Guarantee that hops via local nodes are handled correctly.
 * Handle disconnects between non-server nodes.
 * Give build tool capability to download and install GHC and Cabal
   locally when missing.
