@@ -9,6 +9,7 @@
 module Haste.App.Remote where
 import Haste.Serialize
 import Haste.JSON
+import qualified Haste.JSString as S
 import Haste.Concurrent
 
 import Data.Typeable
@@ -24,24 +25,20 @@ type family Result a where
   Result (a -> b) = Result b
   Result (m a)    = m
 
--- | Server-side type of a 'Remotable' function.
-type family Remote m a where
-  Remote m (a -> b)   = (a -> Remote m b)
-  Remote m (Client a) = m a
-
 -- | A client-side frontend for a 'Dispatch' function.
-class Node m => Remotable m a where
+class Tunnel cli m => Remotable (cli :: * -> *) (m :: * -> *) a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
-  dispatch' :: Proxy m -> StaticKey -> [JSON] -> a
+  dispatch' :: Proxy cli -> Proxy m -> StaticKey -> [JSON] -> a
 
-instance (Serialize a, Remotable m b) => Remotable m (a -> b) where
-  dispatch' pm k xs x = dispatch' pm k (toJSON x : xs)
+instance (Serialize a, Remotable cli m b) => Remotable cli m (a -> b) where
+  dispatch' pc pm k xs x = dispatch' pc pm k (toJSON x : xs)
 
-instance forall m a. (Tunnel Client (ClientOf m), Node m, Serialize a)
-         => Remotable m (Client a) where
-  dispatch' pm k xs = do
-    Right x <- fromJSON <$> call pm k (reverse xs)
+instance forall cli m a.
+            (IsClient cli, Tunnel cli (ClientOf m), Node m, Serialize a)
+         => Remotable cli m (cli a) where
+  dispatch' _ pm k xs = do
+    Right x <- fromJSON <$> remoteCall pm k (reverse xs)
     return x
 
 -- | A function that may act as a server-side callback. That is, one where all
@@ -59,12 +56,15 @@ instance (Serialize a, Callback m b, Mapping m (Res b)) => Callback m (a -> b) w
 instance (Result (m a) ~ m, Mapping m a, Res (m a) ~ a) => Callback m (m a) where
   blob m _ env = invoke env m
 
--- | Invoke a remote function: send the RPC call over the network and wait for
---   the response to get back.
-{-# WARNING call "TODO: share code between sandbox/websocket endpoints" #-}
-call :: Tunnel Client server
-     => Proxy (server :: * -> *) -> StaticKey -> [JSON] -> Client JSON
-call pm k xs = do
+{-# WARNING IsClient "TODO: share code between sandbox/websocket endpoints" #-}
+class Monad m => IsClient m where
+  -- | Invoke a remote function: send the RPC call over the network and wait for
+  --   the response to get back.
+  remoteCall :: forall server. Tunnel m server
+             => Proxy server -> StaticKey -> [JSON] -> m JSON
+
+instance IsClient Client where
+  remoteCall pm k xs = do
     let (ep, _) = mkPacket 0
     case ep of
       LocalNode _ -> do
@@ -74,13 +74,13 @@ call pm k xs = do
         (n, v) <- newResult
         uncurry sendOverWS $ mkPacket n
         liftCIO $ takeMVar v
-  where
-    mkPacket n =
-      tunnel (Proxy :: Proxy Client) pm $ ServerCall
-        { scNonce  = n
-        , scMethod = k
-        , scArgs   = xs
-        }
+    where
+      mkPacket n =
+        tunnel (Proxy :: Proxy Client) pm $ ServerCall
+          { scNonce  = n
+          , scMethod = k
+          , scArgs   = xs
+          }
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[JSON] -> Server JSON@, with the same semantics.
@@ -104,14 +104,14 @@ remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask m (Res dom
 --
 -- > f' = static (remote f)
 -- > main = runApp $ dispatch f' x0 x1 ...
-dispatch :: forall m dom. (Remotable m (H dom), Mapping m (Res dom))
+dispatch :: forall m cli dom. (Remotable (Result cli) m cli, Mapping m (Res dom), H (Result cli) dom ~ cli)
          => StaticPtr (Import m dom)
-         -> H dom
-dispatch f = dispatch' (Proxy :: Proxy m) (staticKey f) []
+         -> cli
+dispatch f = dispatch' (Proxy :: Proxy (Result cli)) (Proxy :: Proxy m) (staticKey f) []
 
-type family H a where
-  H (a -> b) = (a -> H b)
-  H (m a)    = Client (Hask m a)
+type family H c a where
+  H c (a -> b) = (a -> H c b)
+  H c (m a)    = c a
 
 -- | The result type of a monadic function.
 type family Res a where

@@ -1,11 +1,10 @@
 {-# LANGUAGE TypeFamilies, CPP, GeneralizedNewtypeDeriving, FlexibleContexts, ScopedTypeVariables #-}
-{-# LANGUAGE FlexibleInstances #-}
 module Haste.App
   ( module GHC.StaticPtr, module Data.Proxy, module Haste, module Haste.Serialize
   , module Haste.App.Sandbox
   , Endpoint (..), Node (..), CIO, Mapping (..)
-  , MonadConc (..), MonadIO (..), MonadReader (..)
-  , Callback, Remotable, Remote, RunsOn, Import, remote, dispatch, annotate
+  , MonadConc (..), MonadIO (..), MonadReader (..), IsClient (..)
+  , Callback, Remotable, RunsOn, Import, remote, dispatch, annotate
   , RemotePtr, Client, Server, EnvServer, ServerException (..), NodeConfig
   , runApp, start, invokeServer
   , reconnect, onDisconnect, onReconnect
@@ -104,13 +103,6 @@ annotate = return ()
 -- >       annotate :: RunsOn Server
 -- >       JSString.putStrLn (JSString.concat ["name is ", age, " years old"])
 -- >     )
---using :: forall a dom hask. (Serialize a, Remotable dom hask)
---        => a -> StaticPtr (Import m dom (Res hask)) -> hask
-using :: forall m dom fv comp.
-         (Mapping m (Res dom), Remotable m (H dom), H dom ~ (fv -> comp))
-      => fv
-      -> StaticPtr (Import m dom)
-      -> comp
 using fv f = dispatch f fv
 
 -- | A local endpoint with a name derived from the fingerprint of the node
