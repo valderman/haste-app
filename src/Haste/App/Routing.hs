@@ -24,7 +24,8 @@ import Haste.JSON
 import Haste.App.Protocol
 import Haste.Concurrent (MonadConc (..), CIO)
 import Haste (JSString, fromJSStr)
-import Haste.App.Client (Client) -- for default ClientOf type instance
+import Haste.App.Client.Type (Client) -- for default ClientOf type instance
+import Haste.App.Server.Type
 
 -- for default Endpoint instance
 import Data.Typeable
@@ -159,31 +160,6 @@ class Node (m :: * -> *) where
   default getEnv :: MonadReader (Env m) m => m (Env m)
   getEnv = ask
 
--- | Node environment tagged with its type, to avoid having to pass a Proxy
---   around to identify the type of the node.
-newtype NodeEnv m = NodeEnv {unNE :: Env m}
-
--- | A server type, providing the base for more advanced, custom servers.
---   In order to make a simple single-server application, creating an
---   appropriate instance of 'Node' for 'Server' is all that's needed.
-type Server = EnvServer ()
-
--- | Invoke a standard server. This is the 'invoke' method when
---   creating 'Node' instances for @EnvServer@.
-invokeServer :: e -> EnvServer e a -> CIO a
-invokeServer env = flip runReaderT env . runEnvS
-
-localEndpoint :: forall m. Typeable m => Proxy m -> Endpoint
-localEndpoint = LocalNode . show . typeRepFingerprint . typeRep
-
--- | A server type with an environment.
-newtype EnvServer e a = EnvS {runEnvS :: ReaderT e CIO a}
-  deriving (Functor, Applicative, Monad, MonadIO, MonadConc, MonadReader e)
-
-instance MonadConc (ReaderT e CIO) where
-  liftCIO = lift . liftCIO
-  fork m = lift . fork . runReaderT m =<< ask
-
 -- | A mapping from node return values to Haskell values.
 --   This is useful when making nodes out of e.g. DSLs where the DSL-internal
 --   type is not what the Haskell host program gets back from running it.
@@ -204,5 +180,9 @@ class Mapping (m :: * -> *) dom where
   invoke :: Env m -> m dom -> CIO (Hask m dom)
   default invoke :: (m ~ EnvServer (Env m), Hask m dom ~ dom) => Env m -> m dom -> CIO dom
   invoke = invokeServer
+
+-- | Node environment tagged with its type, to avoid having to pass a Proxy
+--   around to identify the type of the node.
+newtype NodeEnv m = NodeEnv {unNE :: Env m}
 
 instance (t ~ Env (EnvServer t)) => Mapping (EnvServer t) a

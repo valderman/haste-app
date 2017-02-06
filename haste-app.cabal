@@ -26,6 +26,7 @@ library
     Haste.App
   other-modules:
     Haste.App.Client,
+    Haste.App.Client.Type,
     Haste.App.Protocol,
     Haste.App.Protocol.Types,
     Haste.App.Remote,
@@ -33,6 +34,8 @@ library
     Haste.App.Sandbox,
     Haste.App.Sandbox.Internal,
     Haste.App.Server,
+    Haste.App.Server.Type,
+    Haste.App.Transport,
     Paths_haste_app
   other-extensions:
     CPP,

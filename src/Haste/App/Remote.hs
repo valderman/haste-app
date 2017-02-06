@@ -18,6 +18,7 @@ import Haste.App.Client
 import Haste.App.Protocol
 import Haste.App.Routing as Routing
 import Haste.App.Sandbox
+import Haste.App.Transport
 
 newtype Import (m :: * -> *) dom = Import (Routing.Env m -> [JSON] -> CIO JSON)
 
@@ -35,10 +36,10 @@ instance (Serialize a, Remotable cli m b) => Remotable cli m (a -> b) where
   dispatch' pc pm k xs x = dispatch' pc pm k (toJSON x : xs)
 
 instance forall cli m a.
-            (IsClient cli, Tunnel cli (ClientOf m), Node m, Serialize a)
+            (MonadClient cli, Tunnel cli (ClientOf m), Node m, Serialize a)
          => Remotable cli m (cli a) where
   dispatch' _ pm k xs = do
-    Right x <- fromJSON <$> remoteCall pm k (reverse xs)
+    Right x <- fromJSON <$> call pm k (reverse xs)
     return x
 
 -- | A function that may act as a server-side callback. That is, one where all
@@ -56,31 +57,19 @@ instance (Serialize a, Callback m b, Mapping m (Res b)) => Callback m (a -> b) w
 instance (Result (m a) ~ m, Mapping m a, Res (m a) ~ a) => Callback m (m a) where
   blob m _ env = invoke env m
 
-{-# WARNING IsClient "TODO: share code between sandbox/websocket endpoints" #-}
-class Monad m => IsClient m where
-  -- | Invoke a remote function: send the RPC call over the network and wait for
-  --   the response to get back.
-  remoteCall :: forall server. Tunnel m server
-             => Proxy server -> StaticKey -> [JSON] -> m JSON
-
-instance IsClient Client where
-  remoteCall pm k xs = do
-    let (ep, _) = mkPacket 0
-    case ep of
-      LocalNode _ -> do
-        n <- getNonce
-        liftCIO $ uncurry (callSandbox n) $ mkPacket n
-      WebSocket{} -> do
-        (n, v) <- newResult
-        uncurry sendOverWS $ mkPacket n
-        liftCIO $ takeMVar v
-    where
-      mkPacket n =
-        tunnel (Proxy :: Proxy Client) pm $ ServerCall
-          { scNonce  = n
-          , scMethod = k
-          , scArgs   = xs
-          }
+call :: forall server m. (Tunnel m server, MonadClient m)
+     => Proxy server -> StaticKey -> [JSON] -> m JSON
+call pm k xs = do
+    n <- getNonce
+    let (ep, pkt) = mkPacket n
+    remoteCall ep pkt n
+  where
+    mkPacket n =
+      tunnel (Proxy :: Proxy m) pm $ ServerCall
+        { scNonce  = n
+        , scMethod = k
+        , scArgs   = xs
+        }
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[JSON] -> Server JSON@, with the same semantics.

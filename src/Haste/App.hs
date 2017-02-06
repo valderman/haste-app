@@ -3,11 +3,10 @@ module Haste.App
   ( module GHC.StaticPtr, module Data.Proxy, module Haste, module Haste.Serialize
   , module Haste.App.Sandbox
   , Endpoint (..), Node (..), CIO, Mapping (..)
-  , MonadConc (..), MonadIO (..), MonadReader (..), IsClient (..)
+  , MonadConc (..), MonadIO (..), MonadReader (..), MonadClient (..)
   , Callback, Remotable, RunsOn, Import, remote, dispatch, annotate
   , RemotePtr, Client, Server, EnvServer, ServerException (..), NodeConfig
   , runApp, start, invokeServer
-  , reconnect, onDisconnect, onReconnect
   , using, localNode
   ) where
 import Control.Monad
