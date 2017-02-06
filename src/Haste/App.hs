@@ -22,9 +22,9 @@ import Haste.App.Routing as R
 import Haste.Concurrent (MonadConc (..), CIO, concurrent)
 import Haste.App.Sandbox hiding (callSandbox, createAppSandbox, isInSandbox)
 import qualified Haste.App.Sandbox as Sbx (createAppSandbox, isInSandbox)
+import Haste.App.Server
 
 #ifndef __HASTE__
-import Haste.App.Server
 import Control.Concurrent (forkIO, threadDelay)
 #endif
 

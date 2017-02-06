@@ -1,7 +1,12 @@
 {-# LANGUAGE CPP, OverloadedStrings #-}
 module Haste.App.Server (serverLoop) where
+import Haste.App.Transport
+import Haste.App.Server.Type
+
 #ifdef __HASTE__
 serverLoop _ _ = pure undefined
+instance MonadClient (EnvServer a) where
+  remoteCall _ _ _ = pure undefined
 #else
 import Control.Concurrent
 import Control.Monad ((>=>))
@@ -68,4 +73,13 @@ handleCall (NodeEnv env) c nonce method args = concurrent $ do
         }
     _ -> do
       error $ "no such method: " ++ show method
+
+instance MonadClient (EnvServer a) where
+  remoteCall (WebSocket h p) msg n = liftIO $ do
+    WS.runClient h p "/" $ \ c' -> do
+      sendTextData c' (fromString $ fromJSStr msg)
+      reply <- toJSString . toString <$> receiveData c'
+      case decodeJSON reply >>= fromJSON of
+        Right (ServerReply n' msg) -> return msg
+        Left _                     -> error "TODO: catch server exceptions"
 #endif
