@@ -181,7 +181,7 @@ newtype EnvServer e a = EnvS {runEnvS :: ReaderT e CIO a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadConc, MonadReader e)
 
 instance MonadConc (ReaderT e CIO) where
-  liftConc = lift . liftConc
+  liftCIO = lift . liftCIO
   fork m = lift . fork . runReaderT m =<< ask
 
 -- | A mapping from node return values to Haskell values.

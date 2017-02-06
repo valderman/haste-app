@@ -78,7 +78,7 @@ mkSandbox perms = do
       , "sandbox" =: perms
       ]
     appendChild documentBody f
-    maybe (error "impossible") (\w -> (f,w)) <$> fromElem f
+    maybe (error "impossible") (\w -> (f,w)) <$> getContentWindow f
   where
     bootstrap = S.concat
       [ "<script>"
@@ -106,7 +106,7 @@ withSandbox perms go = do
 --   communicate with the sandbox. Setting up message event listeners in the
 --   responsibility of the users, in the sandbox as well as in the host program.
 createSandbox :: MonadConc m => JSString -> m (Maybe Window)
-createSandbox perms = liftConc $ do
+createSandbox perms = liftCIO $ do
   v <- newEmptyMVar
   liftIO $ withSandbox perms (concurrent . putMVar v)
   takeMVar v

@@ -45,7 +45,7 @@ instance Monad Client where
     unC (f x) env
 
 instance MonadConc Client where
-  liftConc = liftCIO
+  liftCIO m = Client $ \_ -> m >>= \x -> return x
   fork (Client m) = Client $ \env -> fork (m env)
 
 instance MonadIO Client where
@@ -137,10 +137,6 @@ runClient (Client m) = do
           keepRetrying (min maxDelay (n*2)) ep e
 
     reconnected ep = return ()
-
--- | Lift a CIO action into the Client monad.
-liftCIO :: CIO a -> Client a
-liftCIO m = Client $ \_ -> m >>= \x -> return x
 
 -- | Read an IORef from the session.
 get :: (Env -> IORef a) -> Client a
