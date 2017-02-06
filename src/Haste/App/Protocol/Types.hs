@@ -2,7 +2,6 @@
 -- | Types for the Haste.App protocol.
 module Haste.App.Protocol.Types where
 import Haste.Events (Recipient (..))
-import Haste.Foreign (ToAny (..))
 import Data.Int
 import Haste.Concurrent (CIO)
 
