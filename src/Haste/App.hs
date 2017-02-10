@@ -37,9 +37,11 @@ type RemotePtr dom = StaticPtr (Import (Result dom) dom)
 start :: forall m. (Perms m, Node m) => Proxy m -> NodeConfig
 #ifdef __HASTE__
 start p = do
+  inSandbox <- Sbx.isInSandbox
   case endpoint p of
-    LocalNode _ -> do
-      Sbx.createAppSandbox p
+    LocalNode _
+      | inSandbox -> Sbx.initAppSandbox p
+      | otherwise -> Sbx.createAppSandbox p
     _ -> return ()
 #else
 start p = do

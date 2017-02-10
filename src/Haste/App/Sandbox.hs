@@ -4,7 +4,7 @@
 module Haste.App.Sandbox
   ( invokeSandbox, dependOn, withDepends
   , Perms, Sandbox, module Sbx
-  , callSandbox, createAppSandbox, isInSandbox
+  , callSandbox, createAppSandbox, initAppSandbox, isInSandbox
   ) where
 import Control.Monad
 import Control.Monad.IO.Class
@@ -51,30 +51,18 @@ doneLoadingDeps :: IO ()
 doneLoadingDeps = ffi "(function(){parent.postMessage(__haste_prog_id,'*');})"
 
 -- | Create a Haste.App sandbox and set it up to listen to requests.
---   Only used internally, to start 'LocalNode' nodes. This function must get
---   called in both the host program and the sandbox, to set up communication
---   on both ends.
+--   Only used internally, to start 'LocalNode' nodes. Called OUTSIDE sandbox
+--   only.
 createAppSandbox :: forall m env.
                     (Perms m, Node m)
                  => Proxy m
                  -> CIO ()
 createAppSandbox p = do
-  case perms p of
-    Just ps -> do
-      msbx <- createSandbox ps
-      case msbx of
-        Just sbx -> do
-          awaitLoadingDeps
-          liftIO $ do
-            initSbxRegistry
-            registerSbx ident sbx
-        Nothing  -> do
-          alreadyInited <- liftIO initialized
-          unless alreadyInited $ do
-            _ <- initSandbox =<< Haste.App.Routing.init p
-            liftIO $ doneLoadingDeps
-            return ()
-    _ -> return ()
+    Just sbx <- createSandbox (maybe (error "impossible") id (perms p))
+    awaitLoadingDeps
+    liftIO $ do
+      initSbxRegistry
+      registerSbx ident sbx
   where
     awaitLoadingDeps = do
       v <- newEmptyMVar
@@ -84,8 +72,17 @@ createAppSandbox p = do
         when (md == pid) $ putMVar v ()
       takeMVar v
       unregisterHandler h
-
     LocalNode ident = endpoint p
+
+-- | Initialize a sandbox. Called INSIDE the sandbox only.
+initAppSandbox :: (Perms m, Node m) => Proxy m -> CIO ()
+initAppSandbox p = do
+    alreadyInited <- liftIO initialized
+    unless alreadyInited $ do
+      _ <- initSandbox =<< Haste.App.Routing.init p
+      liftIO $ doneLoadingDeps
+      return ()
+  where
     initSandbox env = do
       window `onEvent` Message $ \msg -> do
         mess <- liftIO $ fromAny (messageData msg)
@@ -105,6 +102,7 @@ createAppSandbox p = do
             }
         Nothing -> do
           error $ "no such method: " ++ show method
+
 
 -- | Send a 'ServerCall' to a sandbox and wait for a reply.
 callSandbox :: Nonce -> Endpoint -> JSString -> CIO JSON
@@ -129,9 +127,6 @@ callSandbox nonce (LocalNode ident) outgoing = do
 
 class Perms m where
   perms :: Proxy (m :: * -> *) -> Maybe JSString
-
-instance {-# OVERLAPPABLE #-} Perms m where
-  perms _ = Nothing
 
 instance {-# OVERLAPPING #-} Permission perms => Perms (Sandbox perms env) where
   perms _ = Just $ showPermissions (Proxy :: Proxy perms)
