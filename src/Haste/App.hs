@@ -5,7 +5,7 @@ module Haste.App
   , Endpoint (..), Node (..), CIO, Mapping (..)
   , MonadConc (..), MonadIO (..), MonadReader (..), MonadClient (..), MonadError (..)
   , Callback, Remotable, RunsOn, Import, remote, dispatch, annotate
-  , RemotePtr, Client, Server, EnvServer, NodeConfig
+  , RemotePtr, Client, Server, EnvServer, NodeConfig, ClientError (..)
   , runApp, start, invokeServer
   , using, localNode
   ) where
@@ -18,6 +18,7 @@ import Haste.Serialize
 import Haste
 import Haste.App.Remote
 import Haste.App.Client
+import Haste.App.Client.Type
 import Haste.App.Protocol
 import Haste.App.Routing as R
 import Haste.Concurrent (MonadConc (..), CIO, concurrent)
