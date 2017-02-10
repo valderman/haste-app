@@ -3,13 +3,14 @@ module Haste.App
   ( module GHC.StaticPtr, module Data.Proxy, module Haste, module Haste.Serialize
   , module Haste.App.Sandbox
   , Endpoint (..), Node (..), CIO, Mapping (..)
-  , MonadConc (..), MonadIO (..), MonadReader (..), MonadClient (..)
+  , MonadConc (..), MonadIO (..), MonadReader (..), MonadClient (..), MonadError (..)
   , Callback, Remotable, RunsOn, Import, remote, dispatch, annotate
-  , RemotePtr, Client, Server, EnvServer, ServerException (..), NodeConfig
+  , RemotePtr, Client, Server, EnvServer, NodeConfig
   , runApp, start, invokeServer
   , using, localNode
   ) where
 import Control.Monad
+import Control.Monad.Error
 import Control.Monad.IO.Class
 import Data.Proxy
 import Data.Typeable
@@ -20,8 +21,8 @@ import Haste.App.Client
 import Haste.App.Protocol
 import Haste.App.Routing as R
 import Haste.Concurrent (MonadConc (..), CIO, concurrent)
-import Haste.App.Sandbox hiding (callSandbox, createAppSandbox, isInSandbox)
-import qualified Haste.App.Sandbox as Sbx (createAppSandbox, isInSandbox)
+import Haste.App.Sandbox hiding (callSandbox, createAppSandbox, initAppSandbox, isInSandbox)
+import qualified Haste.App.Sandbox as Sbx (createAppSandbox, isInSandbox, initAppSandbox)
 import Haste.App.Server
 
 #ifndef __HASTE__
@@ -37,7 +38,7 @@ type RemotePtr dom = StaticPtr (Import (Result dom) dom)
 start :: forall m. (Perms m, Node m) => Proxy m -> NodeConfig
 #ifdef __HASTE__
 start p = do
-  inSandbox <- Sbx.isInSandbox
+  inSandbox <- liftIO Sbx.isInSandbox
   case endpoint p of
     LocalNode _
       | inSandbox -> Sbx.initAppSandbox p

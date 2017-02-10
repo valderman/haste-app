@@ -128,6 +128,9 @@ callSandbox nonce (LocalNode ident) outgoing = do
 class Perms m where
   perms :: Proxy (m :: * -> *) -> Maybe JSString
 
+instance {-# OVERLAPPABLE #-} Perms m where
+  perms _ = Nothing
+
 instance {-# OVERLAPPING #-} Permission perms => Perms (Sandbox perms env) where
   perms _ = Just $ showPermissions (Proxy :: Proxy perms)
 

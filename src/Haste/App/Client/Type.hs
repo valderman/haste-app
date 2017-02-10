@@ -1,6 +1,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | The @Client@ monad type.
-module Haste.App.Client.Type where
+module Haste.App.Client.Type
+  ( MonadError (..), MonadConc (..), MonadEvent (..), MonadIO (..)
+  , Client, ClientError (..)
+  , runClient
+  ) where
 import Haste.Concurrent (MonadConc (..), CIO, concurrent)
 import Control.Monad.IO.Class (MonadIO)
 import Haste.Events (MonadEvent (..))
@@ -23,8 +27,15 @@ instance (Error e, MonadConc m) => MonadConc (ErrorT e m) where
 
 instance MonadEvent Client where
   mkHandler f = return $ \x -> concurrent $ do
-    void $ runErrorT $ runClient $ f x
+    void $ runClient $ f x
+
+runClient :: Client a -> CIO a
+runClient (Client m) = do
+  res <- runErrorT m
+  case res of
+    Right x              -> pure x
+    Left (ClientError e) -> error e
 
 -- | A client program running in the browser.
-newtype Client a = Client {runClient :: ErrorT ClientError CIO a}
+newtype Client a = Client {unClient :: ErrorT ClientError CIO a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadConc, MonadError ClientError)

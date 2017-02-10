@@ -28,6 +28,8 @@ import Network.Wai.Handler.Warp as W
 import Network.Wai.Handler.Warp.Internal as W (settingsPort)
 import Network.Wai.Handler.WebSockets
 
+import Control.Exception (SomeException (..), try)
+
 -- | Run the server event loop for a single endpoint.
 serverLoop :: NodeEnv m -> Int -> IO ()
 serverLoop env port = do
@@ -67,10 +69,11 @@ handleCall (NodeEnv env) c nonce method args = concurrent $ do
   case mm of
     Just m -> do
       result <- deRefStaticPtr m env args
-      liftIO $ sendTextData c $ fromString $ fromJSStr $ encodeJSON $ toJSON $ ServerReply
-        { srNonce = nonce
-        , srResult = result
-        }
+      let reply = ServerReply
+            { srNonce = nonce
+            , srResult = result
+            }
+      liftIO $ sendTextData c $ fromString $ fromJSStr $ encodeJSON $ toJSON reply
     _ -> do
       error $ "no such method: " ++ show method
 

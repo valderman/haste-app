@@ -2,7 +2,7 @@
 -- | Haste.App client-server protocol.
 module Haste.App.Protocol
   ( module Haste.App.Protocol.Types
-  , ServerException (..), ServerCall (..), ServerReply (..)
+  , ServerCall (..), ServerReply (..)
   ) where
 import Control.Exception
 import Control.Monad
@@ -31,11 +31,12 @@ data ServerCall = ServerCall
 data ServerReply = ServerReply
   { srNonce  :: !Nonce
   , srResult :: !JSON
-  }
+  } | ServerException
+  { seMessage :: !String
+  } deriving (Typeable, Show)
 
 -- | Throw a server exception to the client.
-data ServerException = ServerException !String deriving (Typeable, Show)
-instance Exception ServerException
+instance Exception ServerReply
 
 instance Serialize ServerCall where
   parseJSON x = do
@@ -57,12 +58,13 @@ instance Serialize ServerCall where
     ]
 
 instance Serialize ServerReply where
-  parseJSON x = ServerReply <$> x .: "nonce" <*> x .: "result"
-  toJSON (ServerReply n r) = Dict [("nonce", toJSON n), ("result", r)]
-
-instance Serialize ServerException where
-  parseJSON x = ServerException <$> parseJSON x
-  toJSON (ServerException e) = toJSON e
+  parseJSON x = do
+    t <- x .: "status"
+    case t :: JSString of
+      "error" -> ServerException <$> x .: "error"
+      "ok"    -> ServerReply <$> x .: "nonce" <*> x .: "result"
+  toJSON (ServerReply n r) = Dict [("nonce", toJSON n), ("result", r), ("status", "ok")]
+  toJSON (ServerException m) = Dict [("error", toJSON m), ("status", "error")]
 
 instance Serialize Endpoint where
   parseJSON x = do
