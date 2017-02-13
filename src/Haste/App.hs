@@ -4,7 +4,7 @@ module Haste.App
   , module Haste.App.Sandbox
   , Endpoint (..), Node (..), CIO, Mapping (..)
   , MonadConc (..), MonadIO (..), MonadReader (..), MonadClient (..), MonadError (..)
-  , Callback, Remotable, RunsOn, Import, remote, dispatch, annotate
+  , Callback, Remotable, RunsOn, Import, remote, dispatch, dispatchTo, annotate
   , RemotePtr, Client, Server, EnvServer, NodeConfig, ClientError (..)
   , runApp, start, invokeServer
   , using, localNode

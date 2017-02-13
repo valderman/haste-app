@@ -30,16 +30,16 @@ type family Result a where
 class Tunnel cli m => Remotable (cli :: * -> *) (m :: * -> *) a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
-  dispatch' :: Proxy cli -> Proxy m -> StaticKey -> [JSON] -> a
+  dispatch' :: Maybe Endpoint -> Proxy cli -> Proxy m -> StaticKey -> [JSON] -> a
 
 instance (Serialize a, Remotable cli m b) => Remotable cli m (a -> b) where
-  dispatch' pc pm k xs x = dispatch' pc pm k (toJSON x : xs)
+  dispatch' me pc pm k xs x = dispatch' me pc pm k (toJSON x : xs)
 
 instance forall cli m a.
             (MonadClient cli, Tunnel cli (ClientOf m), Node m, Serialize a)
          => Remotable cli m (cli a) where
-  dispatch' _ pm k xs = do
-    Right x <- fromJSON <$> call pm k (reverse xs)
+  dispatch' me _ pm k xs = do
+    Right x <- fromJSON <$> call me pm k (reverse xs)
     return x
 
 -- | A function that may act as a server-side callback. That is, one where all
@@ -58,18 +58,20 @@ instance (Result (m a) ~ m, Mapping m a, Res (m a) ~ a) => Callback m (m a) wher
   blob m _ env = invoke env m
 
 call :: forall server m. (Tunnel m server, MonadClient m)
-     => Proxy server -> StaticKey -> [JSON] -> m JSON
-call pm k xs = do
+     => Maybe Endpoint -> Proxy server -> StaticKey -> [JSON] -> m JSON
+call me pm k xs = do
     n <- getNonce
-    let (ep, pkt) = mkPacket n
-    remoteCall ep pkt n
+    case me of
+      Just ep -> remoteCall ep (encodeJSON $ toJSON $ mkCall n) n
+      _       -> let (ep, pkt) = mkPacket n in remoteCall ep pkt n
   where
-    mkPacket n =
-      tunnel (Proxy :: Proxy m) pm $ ServerCall
-        { scNonce  = n
-        , scMethod = k
-        , scArgs   = xs
-        }
+    mkCall n = ServerCall
+      { scNonce  = n
+      , scMethod = k
+      , scArgs   = xs
+      }
+    mkPacket = tunnel (Proxy :: Proxy m) pm . mkCall
+       
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[JSON] -> Server JSON@, with the same semantics.
@@ -96,7 +98,21 @@ remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask m (Res dom
 dispatch :: forall m cli dom. (Remotable (Result cli) m cli, Mapping m (Res dom), H (Result cli) dom ~ cli)
          => StaticPtr (Import m dom)
          -> cli
-dispatch f = dispatch' (Proxy :: Proxy (Result cli)) (Proxy :: Proxy m) (staticKey f) []
+dispatch f = dispatch' Nothing (Proxy :: Proxy (Result cli)) (Proxy :: Proxy m) (staticKey f) []
+
+-- | Like 'dispatch', but makes a direct call to the server, and overrides
+--   the its default endpoint. The server node must be directly attached to
+--   the client making the call.
+dispatchTo :: forall m cli dom.
+              ( Remotable (Result cli) m cli
+              , Mapping m (Res dom)
+              , H (Result cli) dom ~ cli
+              , Result cli ~ ClientOf m
+              )
+           => Endpoint
+           -> StaticPtr (Import m dom)
+           -> cli
+dispatchTo e f = dispatch' (Just e) (Proxy :: Proxy (Result cli)) (Proxy :: Proxy m) (staticKey f) []
 
 type family H c a where
   H c (a -> b) = (a -> H c b)
