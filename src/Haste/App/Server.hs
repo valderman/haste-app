@@ -59,7 +59,7 @@ handleHop c (WebSocket host port) packet = do
     reply <- receiveData c'
     sendTextData c (reply :: BSL.ByteString)
 handleHop _ LocalNode{} _ = do
-  error "hop to local node on server side; what to do here?"
+  error "native local (named pipe) nodes not supported yet"
 
 -- | Handle a call to this specific node. Note that the method itself is
 --   executed in the CIO monad by the handler.
