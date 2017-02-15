@@ -116,7 +116,7 @@ dispatchTo e f = dispatch' (Just e) (Proxy :: Proxy (Result cli)) (Proxy :: Prox
 
 type family H c a where
   H c (a -> b) = (a -> H c b)
-  H c (m a)    = c a
+  H c (m a)    = c (Hask m a)
 
 -- | The result type of a monadic function.
 type family Res a where
