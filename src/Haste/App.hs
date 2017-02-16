@@ -7,7 +7,7 @@ module Haste.App
   , Callback, Remotable, RunsOn, Import, remote, dispatch, dispatchTo, annotate
   , RemotePtr, Client, Server, EnvServer, NodeConfig, ClientError (..)
   , runApp, start, invokeServer
-  , using, localNode
+  , using, localNode, remoteNode, native
   ) where
 import Control.Monad
 import Control.Monad.Error
@@ -112,3 +112,18 @@ using fv f = dispatch f fv
 --   type. Guaranteed to be unique for each node.
 localNode :: Typeable (m :: * -> *) => Proxy m -> Endpoint
 localNode = LocalNode . show . typeRepFingerprint . typeRep
+
+-- | Create a web socket endpoint.
+remoteNode :: String -> Int -> Proxy (m :: * -> *) -> Endpoint
+remoteNode host port _ = WebSocket host port
+
+-- | Mark an expression as only being available on native nodes; i.e. the ones
+--   not built with Haste. This is useful to ensure certain parts of an
+--   application do not leak onto untrusted clients, as well as minimizing the
+--   amount of JavaScript code that needs to be shipped to users.
+native :: a -> a
+#ifdef __HASTE__
+native _ = error "expression only available on native nodes"
+#else
+native = id
+#endif

@@ -9,7 +9,7 @@ instance Node MyS where
   init _ = liftIO $ newIORef 0
 
 greet :: RemotePtr (String -> MyS Int)
-greet = static (remote $ \s -> do
+greet = static (native $ remote $ \s -> do
     ref <- ask
     liftIO $ do
       putStrLn s

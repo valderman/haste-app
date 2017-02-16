@@ -12,7 +12,7 @@ balance endpoints = do
   return (endpoints !! i)
 
 work :: RemotePtr (String -> Server String)
-work = static (remote $ \s -> do
+work = static (native $ remote $ \s -> do
     liftIO $ putStrLn "Doing super heavy work!"
     return $ "Did the work: " ++ s
   )

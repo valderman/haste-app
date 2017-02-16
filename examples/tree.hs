@@ -16,7 +16,7 @@ instance Node MyS where
   init _ = liftIO $ newIORef 0
 
 greet :: RemotePtr (String -> MyS Int)
-greet = static (remote $ \s -> do
+greet = static (native $ remote $ \s -> do
     ref <- ask
     liftIO $ do
       putStrLn s
@@ -24,7 +24,7 @@ greet = static (remote $ \s -> do
   )
 
 indirectGreeting :: RemotePtr (String -> Server String)
-indirectGreeting = static (remote $ \s -> do
+indirectGreeting = static (native $ remote $ \s -> do
     liftIO $ putStrLn "On Server now..."
     res <- dispatch greet $ "Greeting via Server: " ++ s
     return $ "You're number " ++ show res ++ "!"

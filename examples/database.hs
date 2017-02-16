@@ -56,7 +56,7 @@ type family Res a where
 -- Run the thing; query is inline
 main = runApp [start (Proxy :: Proxy Query)] $ do
   old <- maybe 0 id . fromJSString <$> prompt "How old is \"old\" to you?"
-  olds <- using old $ static (remote $ \old -> proc() -> do
+  olds <- using old $ static (native $ remote $ \old -> proc() -> do
       (name, age) <- queryTable ageTable -< ()
       restrict -< age .>= fromIntegral (old :: Int)
       returnA -< name
