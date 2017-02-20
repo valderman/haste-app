@@ -20,7 +20,7 @@ import Haste.App.Routing as Routing
 import Haste.App.Sandbox
 import Haste.App.Transport
 
-newtype Import (m :: * -> *) dom = Import (Routing.Env m -> [JSON] -> CIO JSON)
+newtype Import dom = Import (Routing.Env (Ident dom) -> [JSON] -> CIO JSON)
 
 -- | The identity, i.e. node type, of a function.
 type family Ident a where
@@ -40,16 +40,24 @@ type family HaskF c a where
 -- | Any types @m@, @cli@ and @dom@ such that @cli@ is a function in the
 --   client monad, @m@ is the type of the server node, and @dom@ is a server
 --   computation that is type-compatible with @cli@.
-type Dispatch m cli dom =
-  ( Remotable (Ident cli) m cli
-  , Mapping m (Res dom)
+type Dispatch cli dom =
+  ( Remotable (Ident cli) (Ident dom) cli
+  , Mapping (Ident dom) (Res dom)
   , HaskF (Ident cli) dom ~ cli
+  )
+
+-- | Any function type @dom@ which can be exported from a node to another.
+type Export dom =
+  ( Node (Ident dom)
+  , Remote (Ident dom) dom
+  , Mapping (Ident dom) (Res dom)
+  , Serialize (Hask (Ident dom) (Res dom))
   )
 
 -- | Does the function @f@ execute on an immediate child of @n@?
 type ChildOf f n = Ident f ~ Parent n
 
--- | A client-side frontend for a 'Dispatch' function.
+-- | A client-side frontend for a 'Remote' function.
 class Tunnel cli m => Remotable (cli :: * -> *) (m :: * -> *) a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
@@ -98,11 +106,10 @@ call me pm k xs = do
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[JSON] -> Server JSON@, with the same semantics.
 --   This allows the function to be called remotely via a static pointer.
-remote :: forall m dom.
-          (Node m, Remote m dom, Mapping m (Res dom), Serialize (Hask m (Res dom)))
+remote :: forall dom. Export dom
        => dom
-       -> Import m dom
-remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask m (Res dom)))
+       -> Import dom
+remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask (Ident dom) (Res dom)))
 
 -- | Turn a static pointer to a serializified function into a client-side
 --   function which, when fully applied, is executed on the server.
@@ -117,16 +124,16 @@ remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask m (Res dom
 --
 -- > f' = static (remote f)
 -- > main = runApp $ dispatch f' x0 x1 ...
-dispatch :: forall m cli dom. Dispatch m cli dom
-         => StaticPtr (Import m dom)
+dispatch :: forall cli dom. Dispatch cli dom
+         => StaticPtr (Import dom)
          -> cli
-dispatch f = dispatch' Nothing (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy m) (staticKey f) []
+dispatch f = dispatch' Nothing (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy (Ident dom)) (staticKey f) []
 
 -- | Like 'dispatch', but makes a direct call to the server, and overrides
 --   the its default endpoint. The server node must be directly attached to
 --   the client making the call.
-dispatchTo :: forall m cli dom. (Dispatch m cli dom, ChildOf cli m)
+dispatchTo :: forall cli dom. (Dispatch cli dom, ChildOf cli (Ident dom))
            => Endpoint
-           -> StaticPtr (Import m dom)
+           -> StaticPtr (Import dom)
            -> cli
-dispatchTo e f = dispatch' (Just e) (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy m) (staticKey f) []
+dispatchTo e f = dispatch' (Just e) (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy (Ident dom)) (staticKey f) []

@@ -33,7 +33,7 @@ import Control.Concurrent (forkIO, threadDelay)
 import GHC.StaticPtr
 
 -- | A 'StaticPointer' to a remote import.
-type RemotePtr dom = StaticPtr (Import (Ident dom) dom)
+type RemotePtr dom = StaticPtr (Import dom)
 
 -- | Start a server of the given node when this server binary starts.
 start :: forall m. (Perms m, Node m) => Proxy m -> NodeConfig
