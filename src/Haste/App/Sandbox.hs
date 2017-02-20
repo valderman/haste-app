@@ -3,7 +3,7 @@
 -- | Sandboxed FFI for Haste.App.
 module Haste.App.Sandbox
   ( invokeSandbox, dependOn, withDepends
-  , Perms, Sandbox, module Sbx
+  , Perms (..), Sandbox, module Sbx
   , callSandbox, createAppSandbox, initAppSandbox, isInSandbox
   ) where
 import Control.Monad
@@ -126,13 +126,10 @@ callSandbox nonce (LocalNode ident) outgoing = do
       return res
 
 class Perms m where
-  perms :: Proxy (m :: * -> *) -> Maybe JSString
+  perms :: Proxy (m :: * -> *) -> JSString
 
-instance {-# OVERLAPPABLE #-} Perms m where
-  perms _ = Nothing
-
-instance {-# OVERLAPPING #-} Permission perms => Perms (Sandbox perms env) where
-  perms _ = Just $ showPermissions (Proxy :: Proxy perms)
+instance Permission perms => Perms (Sandbox perms env) where
+  perms _ = showPermissions (Proxy :: Proxy perms)
 
 -- | A node executing in a sandboxed iframe. The permissions of the sandbox
 --   are given by the @perm@ type argument; see 'Permission' for details.
