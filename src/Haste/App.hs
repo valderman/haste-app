@@ -2,7 +2,7 @@
 module Haste.App
   ( module GHC.StaticPtr, module Data.Proxy, module Haste, module Haste.Serialize
   , module Haste.App.Sandbox
-  , Endpoint (..), Node (..), CIO, Mapping (..)
+  , Endpoint (..), Node (..), CIO, Mapping (..), Dispatch
   , MonadConc (..), MonadIO (..), MonadReader (..), MonadClient (..), MonadError (..)
   , Callback, Remotable, RunsOn, Import, remote, dispatch, dispatchTo, annotate
   , RemotePtr, Client, Server, EnvServer, NodeConfig, ClientError (..)

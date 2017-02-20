@@ -5,7 +5,7 @@
              FlexibleContexts,
              DefaultSignatures,
              FunctionalDependencies,
-             UndecidableInstances #-}
+             ConstraintKinds #-}
 module Haste.App.Remote where
 import Haste.Serialize
 import Haste.JSON
@@ -71,7 +71,15 @@ call me pm k xs = do
       , scArgs   = xs
       }
     mkPacket = tunnel (Proxy :: Proxy m) pm . mkCall
-       
+
+-- | Any types @m@, @cli@ and @dom@ such that @cli@ is a function in the
+--   client monad, @m@ is the type of the server node, and @dom@ is a server
+--   computation that is type-compatible with @cli@.
+type Dispatch m cli dom =
+  ( Remotable (Result cli) m cli
+  , Mapping m (Res dom)
+  , H (Result cli) dom ~ cli
+  )
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[JSON] -> Server JSON@, with the same semantics.
@@ -95,7 +103,7 @@ remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask m (Res dom
 --
 -- > f' = static (remote f)
 -- > main = runApp $ dispatch f' x0 x1 ...
-dispatch :: forall m cli dom. (Remotable (Result cli) m cli, Mapping m (Res dom), H (Result cli) dom ~ cli)
+dispatch :: forall m cli dom. Dispatch m cli dom
          => StaticPtr (Import m dom)
          -> cli
 dispatch f = dispatch' Nothing (Proxy :: Proxy (Result cli)) (Proxy :: Proxy m) (staticKey f) []
@@ -103,12 +111,7 @@ dispatch f = dispatch' Nothing (Proxy :: Proxy (Result cli)) (Proxy :: Proxy m) 
 -- | Like 'dispatch', but makes a direct call to the server, and overrides
 --   the its default endpoint. The server node must be directly attached to
 --   the client making the call.
-dispatchTo :: forall m cli dom.
-              ( Remotable (Result cli) m cli
-              , Mapping m (Res dom)
-              , H (Result cli) dom ~ cli
-              , Result cli ~ Parent m
-              )
+dispatchTo :: forall m cli dom. (Dispatch m cli dom, Result cli ~ Parent m)
            => Endpoint
            -> StaticPtr (Import m dom)
            -> cli
