@@ -7,7 +7,7 @@ module Haste.App
   , Callback, Remotable, RunsOn, Import, remote, dispatch, dispatchTo, annotate
   , RemotePtr, Client, Server, EnvServer, NodeConfig, ClientError (..)
   , runApp, start, invokeServer
-  , using, localNode, remoteNode, native
+  , using, localNode, remoteNode, remoteEndpoint, native
   ) where
 import Control.Monad
 import Control.Monad.Error
@@ -115,7 +115,11 @@ localNode = LocalNode . show . typeRepFingerprint . typeRep
 
 -- | Create a web socket endpoint.
 remoteNode :: String -> Int -> Proxy (m :: * -> *) -> Endpoint
-remoteNode host port _ = WebSocket host port
+remoteNode host port _ = remoteEndpoint host port
+
+-- | Create a remote endpoint for use with 'dispatchTo'.
+remoteEndpoint :: String -> Int -> Endpoint
+remoteEndpoint = WebSocket
 
 -- | Mark an expression as only being available on native nodes; i.e. the ones
 --   not built with Haste. This is useful to ensure certain parts of an

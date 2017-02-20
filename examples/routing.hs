@@ -1,10 +1,10 @@
 {-# LANGUAGE StaticPointers, TypeFamilies, FlexibleInstances #-}
 import Haste.App
 
-newtype Gateway a = Gateway (Server a)
+data Gateway a = Gateway
 
-instance Node Gateway where getEnv = Gateway $ pure ()
-instance Node Server  where type ClientOf Server = Gateway
+instance Node Gateway where getEnv = Gateway
+instance Node Server  where type Parent Server = Gateway
 
 greet :: RemotePtr (String -> Server ())
 greet = static (native $ remote $ liftIO . putStrLn)

@@ -24,7 +24,7 @@ import Haste.JSON
 import Haste.App.Protocol
 import Haste.Concurrent (MonadConc (..), CIO)
 import Haste (JSString, fromJSStr)
-import Haste.App.Client.Type (Client) -- for default ClientOf type instance
+import Haste.App.Client.Type (Client) -- for default Parent type instance
 import Haste.App.Server.Type
 
 -- for default Endpoint instance
@@ -49,12 +49,12 @@ instance Tunnel client client where
   tunnel _cp _sp _                   = error "Can't make a call to myself!"
 
 -- | Inductive case: the current node is attached to the next node in the path.
-instance {-# OVERLAPPABLE #-} (Tunnel client (ClientOf server), Node server) =>
+instance {-# OVERLAPPABLE #-} (Tunnel client (Parent server), Node server) =>
          Tunnel client server where
   tunnel cp sp call = tunnel cp sp' $ ServerHop ep (encodeJSON $ toJSON call)
     where
       ep = endpoint sp
-      sp' = Proxy :: Proxy (ClientOf server)
+      sp' = Proxy :: Proxy (Parent server)
 
 -- * Defining and calling servers
 
@@ -120,8 +120,8 @@ class Node (m :: * -> *) where
   --   This is necessitated by the need for paths to be unique and unambiguous,
   --   a restriction that may or may not be possible to lift in the future.
   --   By default, nodes attach directly to 'Client'.
-  type ClientOf m :: * -> *
-  type ClientOf m = Client
+  type Parent m :: * -> *
+  type Parent m = Client
 
   -- | Environment type of node. Defaults to @()@.
   type Env m :: *

@@ -11,7 +11,7 @@ instance Node Server
 -- but with a detour via Server. In addition, this enables Server to make
 -- requests to MyS.
 instance Node MyS where
-  type ClientOf MyS = Server
+  type Parent MyS = Server
   type Env MyS = IORef Int
   init _ = liftIO $ newIORef 0
 

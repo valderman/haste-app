@@ -36,7 +36,7 @@ instance (Serialize a, Remotable cli m b) => Remotable cli m (a -> b) where
   dispatch' me pc pm k xs x = dispatch' me pc pm k (toJSON x : xs)
 
 instance forall cli m a.
-            (MonadClient cli, Tunnel cli (ClientOf m), Node m, Serialize a)
+            (MonadClient cli, Tunnel cli (Parent m), Node m, Serialize a)
          => Remotable cli m (cli a) where
   dispatch' me _ pm k xs = do
     Right x <- fromJSON <$> call me pm k (reverse xs)
@@ -107,7 +107,7 @@ dispatchTo :: forall m cli dom.
               ( Remotable (Result cli) m cli
               , Mapping m (Res dom)
               , H (Result cli) dom ~ cli
-              , Result cli ~ ClientOf m
+              , Result cli ~ Parent m
               )
            => Endpoint
            -> StaticPtr (Import m dom)
