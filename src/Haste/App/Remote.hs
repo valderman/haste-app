@@ -22,9 +22,32 @@ import Haste.App.Transport
 
 newtype Import (m :: * -> *) dom = Import (Routing.Env m -> [JSON] -> CIO JSON)
 
-type family Result a where
-  Result (a -> b) = Result b
-  Result (m a)    = m
+-- | The identity, i.e. node type, of a function.
+type family Ident a where
+  Ident (a -> b) = Ident b
+  Ident (m a)    = m
+
+-- | The result type of a function on some node.
+type family Res a where
+  Res (a -> b) = Res b
+  Res (m a)    = a
+
+-- | The Haskell equivalent type of a domain-specific function.
+type family HaskF c a where
+  HaskF c (a -> b) = (a -> HaskF c b)
+  HaskF c (m a)    = c (Hask m a)
+
+-- | Any types @m@, @cli@ and @dom@ such that @cli@ is a function in the
+--   client monad, @m@ is the type of the server node, and @dom@ is a server
+--   computation that is type-compatible with @cli@.
+type Dispatch m cli dom =
+  ( Remotable (Ident cli) m cli
+  , Mapping m (Res dom)
+  , HaskF (Ident cli) dom ~ cli
+  )
+
+-- | Does the function @f@ execute on an immediate child of @n@?
+type ChildOf f n = Ident f ~ Parent n
 
 -- | A client-side frontend for a 'Dispatch' function.
 class Tunnel cli m => Remotable (cli :: * -> *) (m :: * -> *) a where
@@ -44,7 +67,7 @@ instance forall cli m a.
 
 -- | A function that may act as a server-side callback. That is, one where all
 --   arguments and return values are serializable.
-class (Result dom ~ m) => Remote m dom where
+class (Ident dom ~ m) => Remote m dom where
   -- | Serializify a function so it may be called remotely.
   blob :: dom -> [JSON] -> Routing.Env m -> CIO (Hask m (Res dom))
 
@@ -54,7 +77,7 @@ instance (Serialize a, Remote m b, Mapping m (Res b)) => Remote m (a -> b) where
       Right x' -> blob (f x') xs env
   blob _ _ _ = error "too few arguments to remote function"
 
-instance (Result (m a) ~ m, Mapping m a, Res (m a) ~ a) => Remote m (m a) where
+instance (Ident (m a) ~ m, Mapping m a, Res (m a) ~ a) => Remote m (m a) where
   blob m _ env = invoke env m
 
 call :: forall server m. (Tunnel m server, MonadClient m)
@@ -71,15 +94,6 @@ call me pm k xs = do
       , scArgs   = xs
       }
     mkPacket = tunnel (Proxy :: Proxy m) pm . mkCall
-
--- | Any types @m@, @cli@ and @dom@ such that @cli@ is a function in the
---   client monad, @m@ is the type of the server node, and @dom@ is a server
---   computation that is type-compatible with @cli@.
-type Dispatch m cli dom =
-  ( Remotable (Result cli) m cli
-  , Mapping m (Res dom)
-  , H (Result cli) dom ~ cli
-  )
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[JSON] -> Server JSON@, with the same semantics.
@@ -106,22 +120,13 @@ remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask m (Res dom
 dispatch :: forall m cli dom. Dispatch m cli dom
          => StaticPtr (Import m dom)
          -> cli
-dispatch f = dispatch' Nothing (Proxy :: Proxy (Result cli)) (Proxy :: Proxy m) (staticKey f) []
+dispatch f = dispatch' Nothing (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy m) (staticKey f) []
 
 -- | Like 'dispatch', but makes a direct call to the server, and overrides
 --   the its default endpoint. The server node must be directly attached to
 --   the client making the call.
-dispatchTo :: forall m cli dom. (Dispatch m cli dom, Result cli ~ Parent m)
+dispatchTo :: forall m cli dom. (Dispatch m cli dom, ChildOf cli m)
            => Endpoint
            -> StaticPtr (Import m dom)
            -> cli
-dispatchTo e f = dispatch' (Just e) (Proxy :: Proxy (Result cli)) (Proxy :: Proxy m) (staticKey f) []
-
-type family H c a where
-  H c (a -> b) = (a -> H c b)
-  H c (m a)    = c (Hask m a)
-
--- | The result type of a monadic function.
-type family Res a where
-  Res (a -> b) = Res b
-  Res (m a)    = a
+dispatchTo e f = dispatch' (Just e) (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy m) (staticKey f) []
