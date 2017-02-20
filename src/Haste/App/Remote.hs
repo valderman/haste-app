@@ -40,7 +40,7 @@ type family HaskF c a where
 -- | Any types @m@, @cli@ and @dom@ such that @cli@ is a function in the
 --   client monad, @m@ is the type of the server node, and @dom@ is a server
 --   computation that is type-compatible with @cli@.
-type Dispatch cli dom =
+type Dispatch dom cli =
   ( Remotable (Ident cli) (Ident dom) cli
   , Mapping (Ident dom) (Res dom)
   , HaskF (Ident cli) dom ~ cli
@@ -55,7 +55,7 @@ type Export dom =
   )
 
 -- | Does the function @f@ execute on an immediate child of @n@?
-type ChildOf f n = Ident f ~ Parent n
+type ChildOf c p = Ident p ~ Parent (Ident c)
 
 -- | A client-side frontend for a 'Remote' function.
 class Tunnel cli m => Remotable (cli :: * -> *) (m :: * -> *) a where
@@ -124,7 +124,7 @@ remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask (Ident dom
 --
 -- > f' = static (remote f)
 -- > main = runApp $ dispatch f' x0 x1 ...
-dispatch :: forall cli dom. Dispatch cli dom
+dispatch :: forall cli dom. Dispatch dom cli
          => StaticPtr (Import dom)
          -> cli
 dispatch f = dispatch' Nothing (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy (Ident dom)) (staticKey f) []
@@ -132,7 +132,7 @@ dispatch f = dispatch' Nothing (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy (Ide
 -- | Like 'dispatch', but makes a direct call to the server, and overrides
 --   the its default endpoint. The server node must be directly attached to
 --   the client making the call.
-dispatchTo :: forall cli dom. (Dispatch cli dom, ChildOf cli (Ident dom))
+dispatchTo :: forall cli dom. (Dispatch dom cli, ChildOf dom cli)
            => Endpoint
            -> StaticPtr (Import dom)
            -> cli
