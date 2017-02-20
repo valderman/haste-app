@@ -44,17 +44,17 @@ instance forall cli m a.
 
 -- | A function that may act as a server-side callback. That is, one where all
 --   arguments and return values are serializable.
-class (Result dom ~ m) => Callback m dom where
+class (Result dom ~ m) => Remote m dom where
   -- | Serializify a function so it may be called remotely.
   blob :: dom -> [JSON] -> Routing.Env m -> CIO (Hask m (Res dom))
 
-instance (Serialize a, Callback m b, Mapping m (Res b)) => Callback m (a -> b) where
+instance (Serialize a, Remote m b, Mapping m (Res b)) => Remote m (a -> b) where
   blob f (x:xs) env =
     case fromJSON x of
       Right x' -> blob (f x') xs env
   blob _ _ _ = error "too few arguments to remote function"
 
-instance (Result (m a) ~ m, Mapping m a, Res (m a) ~ a) => Callback m (m a) where
+instance (Result (m a) ~ m, Mapping m a, Res (m a) ~ a) => Remote m (m a) where
   blob m _ env = invoke env m
 
 call :: forall server m. (Tunnel m server, MonadClient m)
@@ -85,7 +85,7 @@ type Dispatch m cli dom =
 --   function of type @[JSON] -> Server JSON@, with the same semantics.
 --   This allows the function to be called remotely via a static pointer.
 remote :: forall m dom.
-          (Node m, Callback m dom, Mapping m (Res dom), Serialize (Hask m (Res dom)))
+          (Node m, Remote m dom, Mapping m (Res dom), Serialize (Hask m (Res dom)))
        => dom
        -> Import m dom
 remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask m (Res dom)))
