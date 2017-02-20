@@ -20,5 +20,5 @@ instance Node MySandbox where
 shout :: RemotePtr (JSString -> MySandbox ())
 shout = static (remote $ liftIO . ffi "shout")
 
-main = runApp [start (Proxy :: Proxy MySandbox)] $ do
+main = runApp [startLocal (Proxy :: Proxy MySandbox)] $ do
   dispatch shout "Hello, Sandbox"

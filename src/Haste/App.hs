@@ -6,7 +6,7 @@ module Haste.App
   , MonadConc (..), MonadIO (..), MonadReader (..), MonadClient (..), MonadError (..)
   , Remote, Remotable, RunsOn, Import, remote, dispatch, dispatchTo, annotate
   , RemotePtr, Client, Server, EnvServer, NodeConfig, ClientError (..)
-  , runApp, start, invokeServer
+  , runApp, start, startLocal, invokeServer
   , using, localNode, remoteNode, remoteEndpoint, native
   ) where
 import Control.Monad
@@ -36,15 +36,12 @@ import GHC.StaticPtr
 type RemotePtr dom = StaticPtr (Import dom)
 
 -- | Start a server of the given node when this server binary starts.
-start :: forall m. (Perms m, Node m) => Proxy m -> NodeConfig
+start :: forall m. Node m => Proxy m -> NodeConfig
 #ifdef __HASTE__
 start p = do
-  inSandbox <- liftIO Sbx.isInSandbox
   case endpoint p of
-    LocalNode _
-      | inSandbox -> Sbx.initAppSandbox p
-      | otherwise -> Sbx.createAppSandbox p
-    _ -> return ()
+    LocalNode _ -> error "Please start local nodes using `startLocal'"
+    _         -> return ()
 #else
 start p = do
   case endpoint p of
@@ -53,6 +50,20 @@ start p = do
       liftIO $ serverLoop (NodeEnv env :: NodeEnv m) port
     _ -> return ()
       
+#endif
+
+startLocal :: forall m. (Perms m, Node m) => Proxy m -> NodeConfig
+#ifdef __HASTE__
+startLocal p = do
+  inSandbox <- liftIO Sbx.isInSandbox
+  case endpoint p of
+    LocalNode _
+      | inSandbox -> Sbx.initAppSandbox p
+      | otherwise -> Sbx.createAppSandbox p
+    _ -> return ()
+#else
+startLocal _ = do
+  return ()
 #endif
 
 -- | Run a Haste.App application. On the client side, a thread is forked off
