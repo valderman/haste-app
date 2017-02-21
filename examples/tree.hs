@@ -31,6 +31,6 @@ indirectGreeting = static (native $ remote $ \s -> do
   )
 
 main = runApp [start (Proxy :: Proxy Server), start (Proxy :: Proxy MyS)] $ do
-  msg <- dispatch greet "Hello directly, mr. Server!"
+  dispatch greet "Hello directly, mr. Server!"
   msg <- dispatch indirectGreeting "Hello!"
   alert (toJSString msg)

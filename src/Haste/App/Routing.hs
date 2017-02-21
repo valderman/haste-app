@@ -185,3 +185,7 @@ class Mapping (m :: * -> *) dom where
 newtype NodeEnv m = NodeEnv {unNE :: Env m}
 
 instance (t ~ Env (EnvServer t)) => Mapping (EnvServer t) a
+
+instance Node Client where
+  getEnv = return ()
+  endpoint _ = WebSocket "" 0
