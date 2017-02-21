@@ -4,7 +4,6 @@
              MultiParamTypeClasses,
              FlexibleContexts,
              DefaultSignatures,
-             FunctionalDependencies,
              ConstraintKinds #-}
 module Haste.App.Remote where
 import Haste.Serialize

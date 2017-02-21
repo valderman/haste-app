@@ -58,7 +58,7 @@ createAppSandbox :: forall m env.
                  => Proxy m
                  -> CIO ()
 createAppSandbox p = do
-    Just sbx <- createSandbox (maybe (error "impossible") id (perms p))
+    Just sbx <- createSandbox (perms p)
     awaitLoadingDeps
     liftIO $ do
       initSbxRegistry
