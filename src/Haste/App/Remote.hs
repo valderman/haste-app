@@ -66,7 +66,7 @@ instance (Serialize a, Remotable cli m b) => Remotable cli m (a -> b) where
   dispatch' me pc pm k xs x = dispatch' me pc pm k (toJSON x : xs)
 
 instance forall cli m a.
-            (MonadClient cli, Tunnel cli (Parent m), Node m, Serialize a)
+            (MonadClient cli, Tunnel cli m, Node m, Serialize a)
          => Remotable cli m (cli a) where
   dispatch' me _ pm k xs = do
     Right x <- fromJSON <$> call me pm k (reverse xs)
@@ -94,7 +94,7 @@ call me pm k xs = do
     case (me, mkPacket n) of
       (Just ep, Right _)         -> remoteCall ep (encodeJSON $ toJSON $ mkCall n) n
       (Nothing, Right (ep, pkt)) -> remoteCall ep pkt n
-      (Nothing, Left go)         -> go
+      (_,       Left go)         -> go
   where
     mkCall n = ServerCall
       { scNonce  = n
