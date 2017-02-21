@@ -19,12 +19,12 @@ import Haste.App.Routing as Routing
 import Haste.App.Sandbox
 import Haste.App.Transport
 
-newtype Import dom = Import (Routing.Env (Ident dom) -> [JSON] -> CIO JSON)
+newtype Import dom = Import (Routing.Env (Affinity dom) -> [JSON] -> CIO JSON)
 
--- | The identity, i.e. node type, of a function.
-type family Ident a where
-  Ident (a -> b) = Ident b
-  Ident (m a)    = m
+-- | The affinity, i.e. node type, of a function.
+type family Affinity a where
+  Affinity (a -> b) = Affinity b
+  Affinity (m a)    = m
 
 -- | The result type of a function on some node.
 type family Res a where
@@ -40,21 +40,21 @@ type family HaskF c a where
 --   client monad, @m@ is the type of the server node, and @dom@ is a server
 --   computation that is type-compatible with @cli@.
 type Dispatch dom cli =
-  ( Remotable (Ident cli) (Ident dom) cli
-  , Mapping (Ident dom) (Res dom)
-  , HaskF (Ident cli) dom ~ cli
+  ( Remotable (Affinity cli) (Affinity dom) cli
+  , Mapping (Affinity dom) (Res dom)
+  , HaskF (Affinity cli) dom ~ cli
   )
 
 -- | Any function type @dom@ which can be exported from a node to another.
 type Export dom =
-  ( Node (Ident dom)
-  , Remote (Ident dom) dom
-  , Mapping (Ident dom) (Res dom)
-  , Serialize (Hask (Ident dom) (Res dom))
+  ( Node (Affinity dom)
+  , Remote (Affinity dom) dom
+  , Mapping (Affinity dom) (Res dom)
+  , Serialize (Hask (Affinity dom) (Res dom))
   )
 
 -- | Does the function @f@ execute on an immediate child of @n@?
-type ChildOf c p = Ident p ~ Parent (Ident c)
+type ChildOf c p = Affinity p ~ Parent (Affinity c)
 
 -- | A client-side frontend for a 'Remote' function.
 class Tunnel cli m => Remotable (cli :: * -> *) (m :: * -> *) a where
@@ -74,7 +74,7 @@ instance forall cli m a.
 
 -- | A function that may act as a server-side callback. That is, one where all
 --   arguments and return values are serializable.
-class (Ident dom ~ m) => Remote m dom where
+class (Affinity dom ~ m) => Remote m dom where
   -- | Serializify a function so it may be called remotely.
   blob :: dom -> [JSON] -> Routing.Env m -> CIO (Hask m (Res dom))
 
@@ -84,7 +84,7 @@ instance (Serialize a, Remote m b, Mapping m (Res b)) => Remote m (a -> b) where
       Right x' -> blob (f x') xs env
   blob _ _ _ = error "too few arguments to remote function"
 
-instance (Ident (m a) ~ m, Mapping m a, Res (m a) ~ a) => Remote m (m a) where
+instance (Affinity (m a) ~ m, Mapping m a, Res (m a) ~ a) => Remote m (m a) where
   blob m _ env = invoke env m
 
 call :: forall server m. (Tunnel m server, MonadClient m)
@@ -108,7 +108,7 @@ call me pm k xs = do
 remote :: forall dom. Export dom
        => dom
        -> Import dom
-remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask (Ident dom) (Res dom)))
+remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask (Affinity dom) (Res dom)))
 
 -- | Turn a static pointer to a serializified function into a client-side
 --   function which, when fully applied, is executed on the server.
@@ -126,7 +126,7 @@ remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask (Ident dom
 dispatch :: forall cli dom. Dispatch dom cli
          => StaticPtr (Import dom)
          -> cli
-dispatch f = dispatch' Nothing (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy (Ident dom)) (staticKey f) []
+dispatch f = dispatch' Nothing (Proxy :: Proxy (Affinity cli)) (Proxy :: Proxy (Affinity dom)) (staticKey f) []
 
 -- | Like 'dispatch', but makes a direct call to the server, and overrides
 --   the its default endpoint. The server node must be directly attached to
@@ -135,4 +135,4 @@ dispatchTo :: forall cli dom. (Dispatch dom cli, ChildOf dom cli)
            => Endpoint
            -> StaticPtr (Import dom)
            -> cli
-dispatchTo e f = dispatch' (Just e) (Proxy :: Proxy (Ident cli)) (Proxy :: Proxy (Ident dom)) (staticKey f) []
+dispatchTo e f = dispatch' (Just e) (Proxy :: Proxy (Affinity cli)) (Proxy :: Proxy (Affinity dom)) (staticKey f) []
