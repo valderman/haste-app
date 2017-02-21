@@ -66,7 +66,7 @@ instance (Serialize a, Remotable cli m b) => Remotable cli m (a -> b) where
   dispatch' me pc pm k xs x = dispatch' me pc pm k (toJSON x : xs)
 
 instance forall cli m a.
-            (Call cli m, Tunnel cli (Parent m), Node m, Serialize a)
+            (MonadClient cli, Tunnel cli (Parent m), Node m, Serialize a)
          => Remotable cli m (cli a) where
   dispatch' me _ pm k xs = do
     Right x <- fromJSON <$> call me pm k (reverse xs)
@@ -87,29 +87,21 @@ instance (Serialize a, Remote m b) => Remote m (a -> b) where
 instance (Affinity (m a) ~ m, Mapping m a, Res (m a) ~ a) => Remote m (m a) where
   blob m _ env = invoke env m
 
-class MonadClient from => Call from to where
-  call :: (Tunnel from to, MonadClient from)
-       => Maybe Endpoint -> Proxy to -> StaticKey -> [JSON] -> from JSON
-
-instance (Node n, MonadClient n) => Call n n where
-  call _ _ k xs = do
-    env <- getEnv
-    Just p <- liftIO $ unsafeLookupStaticPtr k
-    liftCIO $ deRefStaticPtr p env xs
-
-instance {-# OVERLAPPABLE #-} MonadClient from => Call from to where
-  call me pm k xs = do
-      n <- getNonce
-      case me of
-        Just ep -> remoteCall ep (encodeJSON $ toJSON $ mkCall n) n
-        _       -> let (ep, pkt) = mkPacket n in remoteCall ep pkt n
-    where
-      mkCall n = ServerCall
-        { scNonce  = n
-        , scMethod = k
-        , scArgs   = xs
-        }
-      mkPacket = tunnel (Proxy :: Proxy from) pm . mkCall
+call :: forall from to. (Tunnel from to, MonadClient from)
+     => Maybe Endpoint -> Proxy to -> StaticKey -> [JSON] -> from JSON
+call me pm k xs = do
+    n <- getNonce
+    case (me, mkPacket n) of
+      (Just ep, Right _)         -> remoteCall ep (encodeJSON $ toJSON $ mkCall n) n
+      (Nothing, Right (ep, pkt)) -> remoteCall ep pkt n
+      (Nothing, Left go)         -> go
+  where
+    mkCall n = ServerCall
+      { scNonce  = n
+      , scMethod = k
+      , scArgs   = xs
+      }
+    mkPacket = tunnel (Proxy :: Proxy from) pm . mkCall
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[JSON] -> Server JSON@, with the same semantics.

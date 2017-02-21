@@ -25,6 +25,8 @@ import Haste.Concurrent (MonadConc (..), CIO)
 import Haste (JSString, fromJSStr)
 import Haste.App.Client.Type (Client) -- for default Parent type instance
 import Haste.App.Server.Type
+import GHC.StaticPtr
+import Haste.App.Transport (MonadClient)
 
 -- for default Endpoint instance
 import Data.Typeable
@@ -40,12 +42,16 @@ class Tunnel (client :: * -> *) (server :: * -> *) where
   tunnel :: Proxy client -- ^ Client to tunnel a path from
          -> Proxy server -- ^ Server to tunnel a path to
          -> ServerCall   -- ^ Server call to route
-         -> (Endpoint, JSString)
+         -> Either (client JSON) (Endpoint, JSString)
 
 -- | Base case: client and server are one and the same.
-instance Tunnel client client where
-  tunnel _cp _sp (ServerHop ep call) = (ep, call)
-  tunnel _cp _sp _                   = error "Can't make a call to myself!"
+instance (Node client, MonadClient client) => Tunnel client client where
+  tunnel _cp _sp (ServerHop ep call) = Right (ep, call)
+  tunnel _cp _sp (ServerCall _ k xs) = Left $ do
+    env <- getEnv
+    Just p <- liftIO $ unsafeLookupStaticPtr k
+    liftCIO $ deRefStaticPtr p env xs
+    
 
 -- | Inductive case: the current node is attached to the next node in the path.
 instance {-# OVERLAPPABLE #-} (Tunnel client (Parent server), Node server) =>
