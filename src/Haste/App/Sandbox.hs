@@ -53,7 +53,7 @@ doneLoadingDeps = ffi "(function(){parent.postMessage(__haste_prog_id,'*');})"
 -- | Create a Haste.App sandbox and set it up to listen to requests.
 --   Only used internally, to start 'LocalNode' nodes. Called OUTSIDE sandbox
 --   only.
-createAppSandbox :: forall m env.
+createAppSandbox :: forall c m env.
                     (Perms m, Node m)
                  => Proxy m
                  -> CIO ()
@@ -88,7 +88,6 @@ initAppSandbox p = do
         mess <- liftIO $ fromAny (messageData msg)
         case fromJSON =<< decodeJSON mess of
           Right (ServerCall n m a) -> handleCall (messageSource msg) env n m a
-          Right (ServerHop{})      -> error "TODO: implement hops in sandbox"
           Left _                   -> return ()
 
     handleCall parent env nonce method args = do

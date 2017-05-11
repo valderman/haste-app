@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, MultiParamTypeClasses #-}
 module Haste.App.Client
   ( Client, MonadClient (..)
   , runClient
@@ -12,6 +12,7 @@ import qualified Haste.JSString as JSS (concat)
 import Haste.App.Client.Type
 import Haste.App.Transport
 import Haste.App.Protocol
+import Haste.App.Routing (Node (..))
 import Haste (toJSString)
 import Haste.App.Sandbox (callSandbox)
 

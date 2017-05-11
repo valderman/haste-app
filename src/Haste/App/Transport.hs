@@ -7,6 +7,7 @@ module Haste.App.Transport
 import Control.Monad.IO.Class
 import Data.IORef
 import Data.Proxy
+import Data.Typeable
 import Haste.JSON (JSON)
 import Haste.Concurrent (MonadConc)
 import qualified Haste.JSString as S
@@ -23,7 +24,7 @@ nonceRef = unsafePerformIO $ newIORef 0
 getNonce :: MonadIO m => m Nonce
 getNonce = liftIO $ atomicModifyIORef' nonceRef $ \n -> (n+1, n)
 
-class MonadConc m => MonadClient m where
+class (Typeable m, MonadConc m) => MonadClient m where
   -- | Invoke a remote function: send the RPC call over the network and wait for
   --   the response to get back.
   --   The message received from the server will be a 'ServerReply'. Instances

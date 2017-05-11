@@ -21,6 +21,7 @@ import Haste (JSString, fromJSStr, toJSString)
 import Haste.App.Protocol
 import Haste.App.Routing (NodeEnv (..))
 import Haste.Concurrent (concurrent, liftIO)
+import Data.Typeable
 
 import Network.HTTP.Types
 import Network.Wai
@@ -48,18 +49,8 @@ serverLoop env port = do
 handlePacket :: NodeEnv m -> Connection -> JSString -> IO ()
 handlePacket env c msg = do
   case decodeJSON msg >>= fromJSON of
-    Right (ServerHop ep packet)          -> handleHop c ep packet
     Right (ServerCall nonce method args) -> handleCall env c nonce method args
     _                                    -> error "invalid server call"
-
-handleHop :: Connection -> Endpoint -> JSString -> IO ()
-handleHop c (WebSocket host port) packet = do
-  WS.runClient host port "/" $ \ c' -> do
-    sendTextData c' (fromString $ fromJSStr packet)
-    reply <- receiveData c'
-    sendTextData c (reply :: BSL.ByteString)
-handleHop _ LocalNode{} _ = do
-  error "native local (named pipe) nodes not supported yet"
 
 -- | Handle a call to this specific node. Note that the method itself is
 --   executed in the CIO monad by the handler.
@@ -77,7 +68,7 @@ handleCall (NodeEnv env) c nonce method args = concurrent $ do
     _ -> do
       error $ "no such method: " ++ show method
 
-instance MonadClient (EnvServer a) where
+instance Typeable a => MonadClient (EnvServer a) where
   remoteCall (WebSocket h p) msg n = liftIO $ do
     WS.runClient h p "/" $ \ c' -> do
       sendTextData c' (fromString $ fromJSStr msg)

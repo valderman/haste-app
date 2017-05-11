@@ -6,13 +6,12 @@
              FlexibleContexts,
              GeneralizedNewtypeDeriving,
              CPP,
+             FunctionalDependencies,
              DefaultSignatures #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
 module Haste.App.Routing
   ( Node (..), NodeEnv (..), MonadReader (..), Mapping (..)
-  , Tunnel
-  , tunnel
   , Server, EnvServer, invokeServer, localEndpoint
   ) where
 import Control.Monad.Reader
@@ -36,38 +35,10 @@ import Haste (getLocationHostName)
 import System.IO.Unsafe
 import System.IO (hPutStrLn, stderr)
 
--- | Nest a server call in zero or more server hop packets, as directed by the
---   given path.
-class Tunnel (client :: * -> *) (server :: * -> *) where
-  tunnel :: Proxy client -- ^ Client to tunnel a path from
-         -> Proxy server -- ^ Server to tunnel a path to
-         -> ServerCall   -- ^ Server call to route
-         -> Either (client JSON) (Endpoint, JSString)
-
--- | Base case: client and server are one and the same.
-instance (Node client, MonadClient client) => Tunnel client client where
-  tunnel _cp _sp (ServerHop ep call) = Right (ep, call)
-  tunnel _cp _sp (ServerCall _ k xs) = Left $ do
-    env <- getEnv
-    Just p <- liftIO $ unsafeLookupStaticPtr k
-    liftCIO $ deRefStaticPtr p env xs
-    
-
--- | Inductive case: the current node is attached to the next node in the path.
-instance {-# OVERLAPPABLE #-} (Tunnel client (Parent server), Node server) =>
-         Tunnel client server where
-  tunnel cp sp call = tunnel cp sp' $ ServerHop ep (encodeJSON $ toJSON call)
-    where
-      ep = endpoint sp
-      sp' = Proxy :: Proxy (Parent server)
-
 -- * Defining and calling servers
 
 -- | A server node in the network.
 --   To define a new node @N@, the following must be provided:
---
---     * The client node to which @N@ is immediately attached. This may be
---       omitted if @N@ attaches directly to 'Client'.
 --
 --     * The type of the node's environment. This may be omitted if the node
 --       has no environment, in which case it defaults to @()@.
@@ -117,17 +88,6 @@ instance {-# OVERLAPPABLE #-} (Tunnel client (Parent server), Node server) =>
 -- >   type Env MyNode = IORef MySt
 -- >   init _ = liftIO $ newIORef initialState
 class Node (m :: * -> *) where
-  -- | The client to which this node is attached. Each node must be attached to
-  --   exactly one client. This means that the attachment relation is not
-  --   commutative: if @a@ is attached to @b@, then @b@ may send requests to
-  --   @a@, but not the other way around.
-  --   The attachments of nodes thus form a tree, rooted at the client.
-  --   This is necessitated by the need for paths to be unique and unambiguous,
-  --   a restriction that may or may not be possible to lift in the future.
-  --   By default, nodes attach directly to 'Client'.
-  type Parent m :: * -> *
-  type Parent m = Client
-
   -- | Environment type of node. Defaults to @()@.
   type Env m :: *
   type Env m = ()
@@ -191,7 +151,3 @@ class Mapping (m :: * -> *) dom where
 newtype NodeEnv m = NodeEnv {unNE :: Env m}
 
 instance (t ~ Env (EnvServer t)) => Mapping (EnvServer t) a
-
-instance Node Client where
-  getEnv = return ()
-  endpoint _ = WebSocket "" 0

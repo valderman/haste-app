@@ -4,6 +4,7 @@
              MultiParamTypeClasses,
              FlexibleContexts,
              DefaultSignatures,
+             TypeOperators,
              ConstraintKinds #-}
 module Haste.App.Remote where
 import Haste.Serialize
@@ -40,36 +41,32 @@ type family HaskF c a where
 --   client monad, @m@ is the type of the server node, and @dom@ is a server
 --   computation that is type-compatible with @cli@.
 type Dispatch dom cli =
-  ( Remotable (Affinity cli) (Affinity dom) cli
+  ( Node (Affinity dom)
+  , Remotable (Affinity cli) (Affinity dom) cli
   , Mapping (Affinity dom) (Res dom)
   , HaskF (Affinity cli) dom ~ cli
   )
 
 -- | Any function type @dom@ which can be exported from a node to another.
 type Export dom =
-  ( Node (Affinity dom)
-  , Remote (Affinity dom) dom
+  ( Remote (Affinity dom) dom
   , Mapping (Affinity dom) (Res dom)
   , Serialize (Hask (Affinity dom) (Res dom))
   )
 
--- | Does the function @f@ execute on an immediate child of @n@?
-type ChildOf c p = Affinity p ~ Parent (Affinity c)
-
 -- | A client-side frontend for a 'Remote' function.
-class Tunnel cli m => Remotable (cli :: * -> *) (m :: * -> *) a where
+class Remotable (cli :: * -> *) (m :: * -> *) a where
   -- | Plumbing for turning a 'StaticKey' into a remote function, callable on
   --   the client.
-  dispatch' :: Maybe Endpoint -> Proxy cli -> Proxy m -> StaticKey -> [JSON] -> a
+  dispatch' :: Proxy cli -> Proxy m -> Endpoint -> StaticKey -> [JSON] -> a
 
 instance (Serialize a, Remotable cli m b) => Remotable cli m (a -> b) where
-  dispatch' me pc pm k xs x = dispatch' me pc pm k (toJSON x : xs)
+  dispatch' pc pm ep k xs x = dispatch' pc pm ep k (toJSON x : xs)
 
-instance forall cli m a.
-            (MonadClient cli, Tunnel cli m, Node m, Serialize a)
+instance forall cli m a. (Typeable m, MonadClient cli, Node m, Serialize a)
          => Remotable cli m (cli a) where
-  dispatch' me _ pm k xs = do
-    Right x <- fromJSON <$> call me pm k (reverse xs)
+  dispatch' _ pm ep k xs = do
+    Right x <- fromJSON <$> call ep pm k (reverse xs)
     return x
 
 -- | A function that may act as a server-side callback. That is, one where all
@@ -87,21 +84,15 @@ instance (Serialize a, Remote m b) => Remote m (a -> b) where
 instance (Affinity (m a) ~ m, Mapping m a, Res (m a) ~ a) => Remote m (m a) where
   blob m _ env = invoke env m
 
-call :: forall from to. (Tunnel from to, MonadClient from)
-     => Maybe Endpoint -> Proxy to -> StaticKey -> [JSON] -> from JSON
-call me pm k xs = do
-    n <- getNonce
-    case (me, mkPacket n) of
-      (Just ep, Right _)         -> remoteCall ep (encodeJSON $ toJSON $ mkCall n) n
-      (Nothing, Right (ep, pkt)) -> remoteCall ep pkt n
-      (_,       Left go)         -> go
-  where
-    mkCall n = ServerCall
-      { scNonce  = n
-      , scMethod = k
-      , scArgs   = xs
-      }
-    mkPacket = tunnel (Proxy :: Proxy from) pm . mkCall
+call :: forall (from :: * -> *) (to :: * -> *). (Typeable to, MonadClient from)
+     => Endpoint -> Proxy to -> StaticKey -> [JSON] -> from JSON
+call ep pm k xs = do
+    case eqT :: Maybe (to :~: from) of
+      Just Refl -> do
+        error "TODO: run locally"
+      _ -> do
+        n <- getNonce
+        remoteCall ep (encodeJSON $ toJSON $ (ServerCall n k xs)) n
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[JSON] -> Server JSON@, with the same semantics.
@@ -127,13 +118,21 @@ remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask (Affinity 
 dispatch :: forall cli dom. Dispatch dom cli
          => StaticPtr (Import dom)
          -> cli
-dispatch f = dispatch' Nothing (Proxy :: Proxy (Affinity cli)) (Proxy :: Proxy (Affinity dom)) (staticKey f) []
+dispatch f = dispatch' (Proxy :: Proxy (Affinity cli))
+                       (Proxy :: Proxy (Affinity dom))
+                       (endpoint (Proxy :: Proxy (Affinity dom)))
+                       (staticKey f)
+                       []
 
 -- | Like 'dispatch', but makes a direct call to the server, and overrides
 --   the its default endpoint. The server node must be directly attached to
 --   the client making the call.
-dispatchTo :: forall cli dom. (Dispatch dom cli, ChildOf dom cli)
+dispatchTo :: forall cli dom. (Dispatch dom cli)
            => Endpoint
            -> StaticPtr (Import dom)
            -> cli
-dispatchTo e f = dispatch' (Just e) (Proxy :: Proxy (Affinity cli)) (Proxy :: Proxy (Affinity dom)) (staticKey f) []
+dispatchTo ep f = dispatch' (Proxy :: Proxy (Affinity cli))
+                            (Proxy :: Proxy (Affinity dom))
+                            ep
+                            (staticKey f)
+                            []
