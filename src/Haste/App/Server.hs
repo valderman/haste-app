@@ -2,10 +2,11 @@
 module Haste.App.Server (serverLoop) where
 import Haste.App.Transport
 import Haste.App.Server.Type
+import Data.Typeable
 
 #ifdef __HASTE__
 serverLoop _ _ = pure undefined
-instance MonadClient (EnvServer a) where
+instance Typeable a => MonadClient (EnvServer a) where
   remoteCall _ _ _ = pure undefined
 #else
 import Control.Concurrent
@@ -21,7 +22,6 @@ import Haste (JSString, fromJSStr, toJSString)
 import Haste.App.Protocol
 import Haste.App.Routing (NodeEnv (..))
 import Haste.Concurrent (concurrent, liftIO)
-import Data.Typeable
 
 import Network.HTTP.Types
 import Network.Wai
