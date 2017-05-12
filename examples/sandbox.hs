@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, FlexibleInstances, StaticPointers #-}
+{-# LANGUAGE OverloadedStrings, FlexibleInstances, StaticPointers, ConstraintKinds, TypeFamilies #-}
 import Haste.App
 import Haste.Foreign
 
@@ -14,6 +14,7 @@ type MySandbox = Sandbox AllowAll ()
 -}
 
 instance Node MySandbox where
+  type Allowed MySandbox m = m ~ Client
   endpoint = localNode
   init = dependOn ["foreign.js"]
 

@@ -4,7 +4,7 @@ import Data.Typeable
 import System.Random
 
 instance Node Server where
-  endpoint _ = WebSocket "1.example.com" 24601
+  endpoint = remoteEndpoint "1.example.com" 24601
 
 balance :: [Endpoint] -> Client Endpoint
 balance endpoints = do
@@ -18,6 +18,6 @@ work = static (native $ remote $ \s -> do
   )
 
 main = runApp [start (Proxy :: Proxy Server)] $ do
-  ep <- balance [WebSocket (show n ++ ".example.com") 24601 | n <- [1..5]]
+  ep <- balance [remoteNode (show n ++ ".example.com") 24601 | n <- [1..5]]
   msg <- dispatchTo ep work "massive work"
   alert (toJSString (msg :: String))
