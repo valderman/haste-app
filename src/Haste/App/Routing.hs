@@ -6,7 +6,6 @@
              FlexibleContexts,
              GeneralizedNewtypeDeriving,
              CPP,
-             FunctionalDependencies,
              DefaultSignatures #-}
 -- | Type-level routing of requests from clients to servers attached to a
 --   network and back again.
@@ -24,8 +23,9 @@ import Haste.Concurrent (MonadConc (..), CIO)
 import Haste (JSString, fromJSStr)
 import Haste.App.Client.Type (Client) -- for default Parent type instance
 import Haste.App.Server.Type
-import GHC.StaticPtr
 import Haste.App.Transport (MonadClient)
+import GHC.StaticPtr
+import GHC.Exts (Constraint)
 
 -- for default Endpoint instance
 import Data.Typeable
@@ -92,6 +92,11 @@ class Node (m :: * -> *) where
   type Env m :: *
   type Env m = ()
 
+  -- | The type class describing all clients that may make calls to this node.
+  --   By default, any 'MonadClient' may call a node.
+  type Allowed m (c :: * -> *) :: Constraint
+  type Allowed m c = ()
+
   -- | The location at which the node can be reached.
   endpoint :: Proxy m -> Endpoint
   default endpoint :: Typeable m => Proxy m -> Endpoint
@@ -145,11 +150,3 @@ class Mapping (m :: * -> *) dom where
 newtype NodeEnv m = NodeEnv {unNE :: Env m}
 
 instance (t ~ Env (EnvServer t)) => Mapping (EnvServer t) a
-
-{-
-TODO: fundeps don't work the way we'd like them to, so do one of these:
-  * type AllowedClients m :: [* -> *] = [ServerA, ServerB, Client] under Node
-  * type AllowedClient m a :: Constraint = Blah a under Node
-probably the latter; it's less complex to implement, and allows servers to be
-optionally open to extension
--}

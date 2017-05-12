@@ -2,7 +2,7 @@
 module Haste.App
   ( module GHC.StaticPtr, module Data.Proxy, module Haste, module Haste.Serialize
   , module Haste.App.Sandbox
-  , Endpoint (..), Node (..), CIO, Mapping (..), Dispatch
+  , Endpoint, Node (..), CIO, Mapping (..), Dispatch
   , MonadConc (..), MonadIO (..), MonadReader (..), MonadClient (..), MonadError (..)
   , Remote, Remotable, RunsOn, Import, remote, dispatch, dispatchTo, annotate
   , RemotePtr, Client, Server, EnvServer, NodeConfig, ClientError (..)
@@ -41,7 +41,7 @@ start :: forall m. Node m => Proxy m -> NodeConfig
 start p = do
   case endpoint p of
     LocalNode _ -> error "Please start local nodes using `startLocal'"
-    _         -> return ()
+    _           -> return ()
 #else
 start p = do
   case endpoint p of

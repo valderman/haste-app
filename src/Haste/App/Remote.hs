@@ -42,6 +42,7 @@ type family HaskF c a where
 --   computation that is type-compatible with @cli@.
 type Dispatch dom cli =
   ( Node (Affinity dom)
+  , Allowed (Affinity dom) (Affinity cli)
   , Remotable (Affinity cli) (Affinity dom) cli
   , Mapping (Affinity dom) (Res dom)
   , HaskF (Affinity cli) dom ~ cli
