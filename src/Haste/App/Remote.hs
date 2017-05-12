@@ -44,14 +44,12 @@ type Dispatch dom cli =
   ( Node (Affinity dom)
   , Allowed (Affinity dom) (Affinity cli)
   , Remotable (Affinity cli) (Affinity dom) cli
-  , Mapping (Affinity dom) (Res dom)
   , HaskF (Affinity cli) dom ~ cli
   )
 
 -- | Any function type @dom@ which can be exported from a node to another.
 type Export dom =
   ( Remote (Affinity dom) dom
-  , Mapping (Affinity dom) (Res dom)
   , Serialize (Hask (Affinity dom) (Res dom))
   )
 
