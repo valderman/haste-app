@@ -24,8 +24,7 @@ runQ _ q = liftIO $ withConnection "mydb.sqlite" $ \c -> runQuery c q
 
 
 -- Set up Query as a new node
-instance Node Query where
-  getEnv = pure ()
+instance Node Query
 
 instance Mapping Query (Column PGText) where
   type Hask Query (Column PGText) = [String] ; invoke = runQ
