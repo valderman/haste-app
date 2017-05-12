@@ -125,12 +125,12 @@ localNode :: Typeable (m :: * -> *) => Proxy m -> Endpoint
 localNode = LocalNode . show . typeRepFingerprint . typeRep
 
 -- | Create a web socket endpoint.
-remoteNode :: String -> Int -> Proxy (m :: * -> *) -> Endpoint
-remoteNode host port _ = remoteEndpoint host port
+remoteEndpoint :: String -> Int -> Proxy (m :: * -> *) -> Endpoint
+remoteEndpoint host port _ = remoteNode host port
 
 -- | Create a remote endpoint for use with 'dispatchTo'.
-remoteEndpoint :: String -> Int -> Endpoint
-remoteEndpoint = WebSocket
+remoteNode :: String -> Int -> Endpoint
+remoteNode = WebSocket
 
 -- | Mark an expression as only being available on native nodes; i.e. the ones
 --   not built with Haste. This is useful to ensure certain parts of an

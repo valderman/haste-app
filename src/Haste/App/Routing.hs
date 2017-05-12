@@ -135,14 +135,14 @@ class Node (m :: * -> *) where
 -- >   invoke env node = invokeMyNode env node
 --
 --   This instance is already provided for all nodes of type 'EnvServer'.
-class Mapping (m :: * -> *) dom where
-  type Hask m dom
-  type Hask m dom = dom
+class Mapping (m :: * -> *) a where
+  type Hask m a
+  type Hask m a = a
 
   -- | Run a DSL computation which returns an @a@ on the DSL level,
   --   corresponding to @Map m a@ on the Haskell level.
-  invoke :: Env m -> m dom -> CIO (Hask m dom)
-  default invoke :: (m ~ EnvServer (Env m), Hask m dom ~ dom) => Env m -> m dom -> CIO dom
+  invoke :: Env m -> m a -> CIO (Hask m a)
+  default invoke :: (m ~ EnvServer (Env m), Hask m a ~ a) => Env m -> m a -> CIO a
   invoke = invokeServer
 
 -- | Node environment tagged with its type, to avoid having to pass a Proxy
