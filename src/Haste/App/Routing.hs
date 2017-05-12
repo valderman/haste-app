@@ -114,16 +114,10 @@ class Node (m :: * -> *) where
           go n (c:s) = go (n*33 + (fromIntegral $ ord c)) s
           go n _     = n
 
-
   -- | Initialization for the given node.
   init :: Proxy m -> CIO (Env m)
   default init :: Default (Env m) => Proxy m -> CIO (Env m)
   init _ = return def
-
-  -- | Returns the environment of this computation.
-  getEnv :: m (Env m)
-  default getEnv :: MonadReader (Env m) m => m (Env m)
-  getEnv = ask
 
 -- | A mapping from node return values to Haskell values.
 --   This is useful when making nodes out of e.g. DSLs where the DSL-internal
@@ -151,3 +145,11 @@ class Mapping (m :: * -> *) dom where
 newtype NodeEnv m = NodeEnv {unNE :: Env m}
 
 instance (t ~ Env (EnvServer t)) => Mapping (EnvServer t) a
+
+{-
+TODO: fundeps don't work the way we'd like them to, so do one of these:
+  * type AllowedClients m :: [* -> *] = [ServerA, ServerB, Client] under Node
+  * type AllowedClient m a :: Constraint = Blah a under Node
+probably the latter; it's less complex to implement, and allows servers to be
+optionally open to extension
+-}
