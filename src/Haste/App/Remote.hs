@@ -11,8 +11,8 @@ import Haste.Serialize
 import Haste.JSON
 import qualified Haste.JSString as S
 import Haste.Concurrent
+import Data.Proxy
 
-import Data.Typeable
 import GHC.StaticPtr
 import Haste.App.Client
 import Haste.App.Protocol
@@ -62,7 +62,7 @@ class Remotable (cli :: * -> *) (m :: * -> *) a where
 instance (Serialize a, Remotable cli m b) => Remotable cli m (a -> b) where
   dispatch' pc pm ep k xs x = dispatch' pc pm ep k (toJSON x : xs)
 
-instance forall cli m a. (Typeable m, MonadClient cli, Node m, Serialize a)
+instance forall cli m a. (MonadClient cli, Node m, Serialize a)
          => Remotable cli m (cli a) where
   dispatch' _ pm ep k xs = do
     Right x <- fromJSON <$> call ep pm k (reverse xs)
@@ -83,15 +83,11 @@ instance (Serialize a, Remote m b) => Remote m (a -> b) where
 instance (Affinity (m a) ~ m, Mapping m a, Res (m a) ~ a) => Remote m (m a) where
   blob m _ env = invoke env m
 
-call :: forall (from :: * -> *) (to :: * -> *). (Typeable to, MonadClient from)
+call :: forall (from :: * -> *) (to :: * -> *). MonadClient from
      => Endpoint -> Proxy to -> StaticKey -> [JSON] -> from JSON
 call ep pm k xs = do
-    case eqT :: Maybe (to :~: from) of
-      Just Refl -> do
-        error "TODO: run locally"
-      _ -> do
-        n <- getNonce
-        remoteCall ep (encodeJSON $ toJSON $ (ServerCall n k xs)) n
+  n <- getNonce
+  remoteCall ep (encodeJSON $ toJSON $ (ServerCall n k xs)) n
 
 -- | Serializify any function of type @a -> ... -> b@ into a corresponding
 --   function of type @[JSON] -> Server JSON@, with the same semantics.
@@ -99,7 +95,8 @@ call ep pm k xs = do
 remote :: forall dom. Export dom
        => dom
        -> Import dom
-remote f = Import $ \env xs -> toJSON <$> (blob f xs env :: CIO (Hask (Affinity dom) (Res dom)))
+remote f = Import $ \env xs ->
+  toJSON <$> (blob f xs env :: CIO (Hask (Affinity dom) (Res dom)))
 
 -- | Turn a static pointer to a serializified function into a client-side
 --   function which, when fully applied, is executed on the server.
