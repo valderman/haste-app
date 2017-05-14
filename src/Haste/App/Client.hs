@@ -36,5 +36,5 @@ instance MonadClient Client where
         v <- newEmptyMVar
         return (v, WebSocketConfig
           { wsOpenURL = JSS.concat ["ws://", toJSString host, ":", toJSString port]
-          , wsOnMessage = \ws x -> putMVar v x >> wsClose ws
+          , wsOnMessage = \_ x -> putMVar v x
           })
