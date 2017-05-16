@@ -10,6 +10,7 @@ instance Typeable a => MonadClient (EnvServer a) where
   remoteCall _ _ _ = pure undefined
 #else
 import Control.Concurrent
+import Control.Monad.Catch
 import Control.Monad ((>=>))
 import qualified Data.ByteString.Lazy as BSL
 import Data.ByteString.Lazy.UTF8
@@ -21,7 +22,7 @@ import Haste.JSON
 import Haste (JSString, fromJSStr, toJSString)
 import Haste.App.Protocol
 import Haste.App.Routing (NodeEnv (..))
-import Haste.Concurrent (concurrent, liftIO)
+import Haste.Concurrent (CIO, concurrent, liftIO)
 
 import Network.HTTP.Types
 import Network.Wai
@@ -29,7 +30,13 @@ import Network.Wai.Handler.Warp as W
 import Network.Wai.Handler.Warp.Internal as W (settingsPort)
 import Network.Wai.Handler.WebSockets
 
-import Control.Exception (SomeException (..), try)
+import Control.Exception (SomeException (..))
+import qualified Control.Exception as CE (catch, throwIO)
+
+instance MonadThrow CIO where
+  throwM = unsafeCoerce . CE.throwIO
+instance MonadCatch CIO where
+  catch m h = unsafeCoerce $ CE.catch (unsafeCoerce m) (unsafeCoerce . h)
 
 -- | Run the server event loop for a single endpoint.
 serverLoop :: NodeEnv m -> Int -> IO ()
@@ -59,11 +66,10 @@ handleCall (NodeEnv env) c nonce method args = concurrent $ do
   mm <- liftIO $ unsafeLookupStaticPtr method
   case mm of
     Just m -> do
-      result <- deRefStaticPtr m env args
-      let reply = ServerReply
-            { srNonce = nonce
-            , srResult = result
-            }
+      result <- try $ deRefStaticPtr m env args
+      let reply = case result of
+            Right r                -> ServerReply nonce r
+            Left (SomeException e) -> ServerEx (show e)
       liftIO $ sendTextData c $ fromString $ fromJSStr $ encodeJSON $ toJSON reply
     _ -> do
       error $ "no such method: " ++ show method
@@ -75,5 +81,6 @@ instance Typeable a => MonadClient (EnvServer a) where
       reply <- toJSString . toString <$> receiveData c'
       case decodeJSON reply >>= fromJSON of
         Right (ServerReply n' msg) -> return msg
-        Left _                     -> error "TODO: catch server exceptions"
+        Right (ServerEx msg)       -> throwM (ServerException msg)
+        Left e                     -> throwM (NetworkException $ show e)
 #endif

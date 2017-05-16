@@ -54,9 +54,6 @@ import System.IO (hPutStrLn, stderr)
 --       @Env m@ is an instance of 'Default' and no other server-side setup
 --       is needed.
 --
---     * A function @getEnv@, which returns the node's environment. This may
---       be omitted is @N@ is an instance of @MonadReader (Env N)@.
---
 --     * At least one instance of 'Mapping'. This can be omitted if @N@ is
 --       a case of 'EnvServer'.
 --

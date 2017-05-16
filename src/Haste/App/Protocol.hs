@@ -3,6 +3,7 @@
 module Haste.App.Protocol
   ( module Haste.App.Protocol.Types
   , ServerCall (..), ServerReply (..)
+  , ServerException (..), NetworkException (..)
   ) where
 import Control.Exception
 import Control.Monad
@@ -28,12 +29,19 @@ data ServerCall = ServerCall
 data ServerReply = ServerReply
   { srNonce  :: !Nonce
   , srResult :: !JSON
-  } | ServerException
+  } | ServerEx
   { seMessage :: !String
   } deriving (Typeable, Show)
 
 -- | Throw a server exception to the client.
-instance Exception ServerReply
+data ServerException = ServerException String
+  deriving (Typeable, Show)
+instance Exception ServerException
+
+-- | Throw an exception when there's network trouble.
+data NetworkException = NetworkException String
+  deriving (Typeable, Show)
+instance Exception NetworkException
 
 instance Serialize ServerCall where
   parseJSON x = do
@@ -52,10 +60,10 @@ instance Serialize ServerReply where
   parseJSON x = do
     t <- x .: "status"
     case t :: JSString of
-      "error" -> ServerException <$> x .: "error"
+      "error" -> ServerEx <$> x .: "error"
       "ok"    -> ServerReply <$> x .: "nonce" <*> x .: "result"
   toJSON (ServerReply n r) = Dict [("nonce", toJSON n), ("result", r), ("status", "ok")]
-  toJSON (ServerException m) = Dict [("error", toJSON m), ("status", "error")]
+  toJSON (ServerEx m)      = Dict [("error", toJSON m), ("status", "error")]
 
 instance Serialize Word64 where
   parseJSON x = do

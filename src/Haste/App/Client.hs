@@ -29,7 +29,7 @@ instance MonadClient Client where
         return reply
       case reply of
         Right (ServerReply _ reply) -> return reply
-        Right (ServerException m)   -> throwError $ ClientError m
+        Right (ServerEx m)          -> throwError $ ClientError m
         Left e                      -> throwError $ ClientError (show e)
     where
       mkConfig (WebSocket host port) = do
