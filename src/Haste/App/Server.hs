@@ -69,7 +69,7 @@ handleCall (NodeEnv env) c nonce method args = concurrent $ do
       result <- try $ deRefStaticPtr m env args
       let reply = case result of
             Right r                -> ServerReply nonce r
-            Left (SomeException e) -> ServerEx (show e)
+            Left (SomeException e) -> ServerEx nonce (show e)
       liftIO $ sendTextData c $ fromString $ fromJSStr $ encodeJSON $ toJSON reply
     _ -> do
       error $ "no such method: " ++ show method
@@ -81,6 +81,6 @@ instance Typeable a => MonadClient (EnvServer a) where
       reply <- toJSString . toString <$> receiveData c'
       case decodeJSON reply >>= fromJSON of
         Right (ServerReply n' msg) -> return msg
-        Right (ServerEx msg)       -> throwM (ServerException msg)
+        Right (ServerEx _ msg)     -> throwM (ServerException msg)
         Left e                     -> throwM (NetworkException $ show e)
 #endif

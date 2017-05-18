@@ -77,7 +77,8 @@ instance (Serialize a, Remote m b) => Remote m (a -> b) where
   blob f (x:xs) env =
     case fromJSON x of
       Right x' -> blob (f x') xs env
-  blob _ _ _ = error "too few arguments to remote function"
+      _        -> error "impossible: JSON conversion failed"
+  blob _ _ _ = error "impossible: too few arguments"
 
 instance (Affinity (m a) ~ m, Mapping m a, Res (m a) ~ a) => Remote m (m a) where
   blob m _ env = invoke env m

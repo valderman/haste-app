@@ -30,7 +30,8 @@ data ServerReply = ServerReply
   { srNonce  :: !Nonce
   , srResult :: !JSON
   } | ServerEx
-  { seMessage :: !String
+  { seNonce :: !Nonce
+  , seMessage :: !String
   } deriving (Typeable, Show)
 
 -- | Throw a server exception to the client.
@@ -60,10 +61,10 @@ instance Serialize ServerReply where
   parseJSON x = do
     t <- x .: "status"
     case t :: JSString of
-      "error" -> ServerEx <$> x .: "error"
+      "error" -> ServerEx <$> x .: "nonce" <*> x .: "error"
       "ok"    -> ServerReply <$> x .: "nonce" <*> x .: "result"
   toJSON (ServerReply n r) = Dict [("nonce", toJSON n), ("result", r), ("status", "ok")]
-  toJSON (ServerEx m)      = Dict [("error", toJSON m), ("status", "error")]
+  toJSON (ServerEx n m)    = Dict [("nonce", toJSON n), ("error", toJSON m), ("status", "error")]
 
 instance Serialize Word64 where
   parseJSON x = do

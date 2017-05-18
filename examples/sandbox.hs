@@ -2,9 +2,10 @@
 import Haste.App
 import Haste.Foreign
 
--- Change AllowAll to AllowNone to see an example of the sandbox blocking
--- things.
-type MySandbox = Sandbox AllowAll ()
+-- The alert call will be blocked, since the default sandbox permissions don't
+-- allow modals.
+data MySbx
+type MySandbox = Sandbox MySbx
 
 {- Contents of foreign.js:
 

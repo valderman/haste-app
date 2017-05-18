@@ -3,7 +3,7 @@
 -- | Sandboxed FFI for Haste.App.
 module Haste.App.Sandbox
   ( invokeSandbox, dependOn, withDepends
-  , Perms (..), Sandbox, module Sbx
+  , Perms (..), CustomSandbox, Sandbox, module Sbx
   , callSandbox, createAppSandbox, initAppSandbox, isInSandbox
   ) where
 import Control.Monad
@@ -124,21 +124,24 @@ callSandbox nonce (LocalNode ident) outgoing = do
       unregisterHandler h
       return res
 
+-- | A standard sandbox, with no environment and no extra permissions.
+type Sandbox = CustomSandbox AllowNone ()
+
 class Perms m where
   perms :: Proxy (m :: * -> *) -> JSString
 
-instance Permission perms => Perms (Sandbox perms env) where
+instance Permission perms => Perms (CustomSandbox perms env t) where
   perms _ = showPermissions (Proxy :: Proxy perms)
 
 -- | A node executing in a sandboxed iframe. The permissions of the sandbox
 --   are given by the @perm@ type argument; see 'Permission' for details.
-newtype Sandbox perm env a = Sandbox (EnvServer env a)
+newtype CustomSandbox perm env t a = Sandbox (EnvServer env a)
   deriving (Functor, Applicative, Monad, MonadIO, MonadConc, MonadReader env)
 
 -- | Invoke a sandboxed computation. Use for @Mapping Sandbox@ instances.
 --   However, in pretty much all circumstances, the provided @Mapping@ instance
 --   should be the only one needed for any sandbox.
-invokeSandbox :: env -> Sandbox perm env a -> CIO a
+invokeSandbox :: env -> CustomSandbox perm env t a -> CIO a
 invokeSandbox env (Sandbox m) = invokeServer env m
 
 -- | Initialize a sandbox by loading the given dependencies and then running
@@ -169,5 +172,5 @@ withDepends extraInit deps _ = do
 dependOn :: Default env => [URL] -> Proxy (m :: * -> *) -> CIO env
 dependOn deps = pure def `withDepends` deps
 
-instance env ~ Env (Sandbox perm env) => Mapping (Sandbox perm env) a where
+instance env ~ Env (CustomSandbox perm env t) => Mapping (CustomSandbox perm env t) a where
   invoke = invokeSandbox
