@@ -100,7 +100,8 @@ initAppSandbox p = do
             , srResult = result
             }
         Nothing -> do
-          error $ "no such method: " ++ show method
+          postMessage parent $ encodeJSON $ toJSON $
+            ServerEx nonce $ "no such method: " ++ show method
 
 
 -- | Send a 'ServerCall' to a sandbox and wait for a reply.
