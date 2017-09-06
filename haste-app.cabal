@@ -54,9 +54,9 @@ library
 
   build-depends:
     base         >=4.8 && <4.9,
-    data-default >=0.7  && <0.8,
-    exceptions   >=0.8  && <0.9,
-    mtl          >=2.2  && <3,
+    data-default >=0.7 && <0.8,
+    exceptions   >=0.8 && <0.9,
+    mtl          >=2.2 && <3,
     transformers >=0.4 && <0.6,
     haste-lib    >=0.6 && <0.7,
     haste-prim   >=0.6 && <0.7,
