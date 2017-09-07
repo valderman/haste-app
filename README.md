@@ -23,13 +23,5 @@ TODO
 ----
 * Specify which endpoints to start using annotations?
 * Add long-polling simulation of server-triggered events?
-* HTTPS support for files served using Haste.App.Standalone.
-* Guarantee that hops via local nodes are handled correctly.
-* Give build tool capability to download and install GHC and Cabal
-  locally when missing.
-* Add flags to build tool for passing flags to cabal, changing paths, etc.
-* Add short tutorial for build tool.
-* Let build tool config file contain information about all endpoints, so they
-  can all be built at the same time.
-* Have build tool pass a cabal flag indicating the name of the endpoint
-  currently being built.
+* Bring back Haste.App.Standalone.
+* Bring back the build tool.
