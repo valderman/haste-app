@@ -1,8 +1,7 @@
 name:                haste-app
 version:             0.1.0.0
 synopsis:            Framework for type-safe, distributed web applications.
-description:         Build tool and libraries for quick development of tierless
-                     web applications.
+description:         Framework for quick development of tierless web applications.
 homepage:            http://haste-lang.org
 license:             MIT
 license-file:        LICENSE
